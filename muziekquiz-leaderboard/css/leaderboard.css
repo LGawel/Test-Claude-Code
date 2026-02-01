@@ -1,0 +1,462 @@
+/* Reset en basis */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Comic Sans MS', 'Chalkboard', 'Comic Neue', cursive, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh;
+    color: white;
+    overflow: hidden;
+}
+
+.container {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+/* Header */
+.quiz-header {
+    text-align: center;
+    padding: 10px 0 20px;
+}
+
+.quiz-header h1 {
+    font-size: 3rem;
+    text-shadow: 3px 3px 6px rgba(0,0,0,0.5), 0 0 20px rgba(255,215,0,0.5);
+    color: #ffd700;
+    animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+    from { text-shadow: 3px 3px 6px rgba(0,0,0,0.5), 0 0 20px rgba(255,215,0,0.3); }
+    to { text-shadow: 3px 3px 6px rgba(0,0,0,0.5), 0 0 30px rgba(255,215,0,0.8); }
+}
+
+.round-indicator {
+    font-size: 1.5rem;
+    margin-top: 10px;
+    background: rgba(255,255,255,0.1);
+    display: inline-block;
+    padding: 8px 25px;
+    border-radius: 25px;
+    border: 2px solid rgba(255,215,0,0.5);
+}
+
+/* Race Container */
+.race-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+}
+
+.track {
+    width: 95%;
+    height: 300px;
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+/* Start en Finish lijnen */
+.start-line, .finish-line {
+    width: 80px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+    z-index: 10;
+}
+
+.start-line {
+    background: linear-gradient(180deg, #4CAF50, #2E7D32);
+    border-radius: 10px 0 0 10px;
+    border: 3px solid #81C784;
+}
+
+.start-line span {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    letter-spacing: 3px;
+}
+
+.finish-line {
+    background: linear-gradient(180deg, #f44336, #c62828);
+    border-radius: 0 10px 10px 0;
+    border: 3px solid #ef5350;
+}
+
+.finish-line span {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    letter-spacing: 3px;
+}
+
+.checkered-flag {
+    width: 40px;
+    height: 40px;
+    margin-top: 10px;
+    background-image:
+        linear-gradient(45deg, #000 25%, transparent 25%),
+        linear-gradient(-45deg, #000 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #000 75%),
+        linear-gradient(-45deg, transparent 75%, #000 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+    border: 2px solid white;
+    border-radius: 5px;
+}
+
+/* De weg */
+.road {
+    flex: 1;
+    height: 100%;
+    background: #444;
+    position: relative;
+    overflow: visible;
+    border-top: 8px solid #ffd700;
+    border-bottom: 8px solid #ffd700;
+}
+
+/* Weg strepen */
+.road::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: repeating-linear-gradient(
+        90deg,
+        #ffd700 0px,
+        #ffd700 30px,
+        transparent 30px,
+        transparent 60px
+    );
+    transform: translateY(-50%);
+}
+
+/* Rijbanen lijnen */
+.road::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 48px,
+        rgba(255,255,255,0.1) 48px,
+        rgba(255,255,255,0.1) 50px
+    );
+}
+
+/* Team markers op de weg */
+.team-marker {
+    position: absolute;
+    width: 120px;
+    height: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: left 1.5s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.5s ease;
+    z-index: 20;
+    cursor: pointer;
+}
+
+.team-marker:hover {
+    transform: scale(1.1);
+    z-index: 30;
+}
+
+.team-avatar {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: 4px solid white;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    background-size: cover;
+    background-position: center;
+    background-color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+}
+
+.team-marker-name {
+    background: rgba(0,0,0,0.8);
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    margin-top: 5px;
+    white-space: nowrap;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Animatie voor punten krijgen */
+@keyframes bounce {
+    0%, 100% { transform: scale(1); }
+    25% { transform: scale(1.2); }
+    50% { transform: scale(0.95); }
+    75% { transform: scale(1.1); }
+}
+
+.team-marker.scoring {
+    animation: bounce 0.6s ease;
+}
+
+/* Animatie voor inhalen */
+@keyframes overtake {
+    0% { transform: scale(1) rotate(0deg); }
+    25% { transform: scale(1.15) rotate(-5deg); }
+    50% { transform: scale(1.2) rotate(5deg); }
+    75% { transform: scale(1.15) rotate(-3deg); }
+    100% { transform: scale(1) rotate(0deg); }
+}
+
+.team-marker.overtaking {
+    animation: overtake 0.8s ease;
+    z-index: 25;
+}
+
+/* Scorebord */
+.scoreboard {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px 0;
+    flex-wrap: wrap;
+}
+
+.score-card {
+    background: linear-gradient(145deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
+    border-radius: 15px;
+    padding: 15px 25px;
+    min-width: 150px;
+    text-align: center;
+    border: 2px solid rgba(255,255,255,0.2);
+    transition: all 0.3s ease;
+}
+
+.score-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(255,215,0,0.5);
+}
+
+.score-card.leader {
+    border-color: #ffd700;
+    box-shadow: 0 0 20px rgba(255,215,0,0.3);
+}
+
+.score-card .position {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.score-card .position.gold { color: #ffd700; }
+.score-card .position.silver { color: #c0c0c0; }
+.score-card .position.bronze { color: #cd7f32; }
+
+.score-card .team-name {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    color: #fff;
+}
+
+.score-card .score {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #4fc3f7;
+}
+
+.score-card .score span {
+    font-size: 1rem;
+    color: rgba(255,255,255,0.6);
+}
+
+/* Punten popup animatie */
+.points-popup {
+    position: absolute;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #4CAF50;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    animation: floatUp 1.5s ease-out forwards;
+    pointer-events: none;
+    z-index: 100;
+}
+
+@keyframes floatUp {
+    0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-60px) scale(1.5);
+    }
+}
+
+/* Confetti */
+.confetti-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+.confetti {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    animation: confetti-fall 3s ease-out forwards;
+}
+
+@keyframes confetti-fall {
+    0% {
+        transform: translateY(-100px) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+    }
+}
+
+/* Winner overlay */
+.winner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    animation: fadeIn 0.5s ease;
+}
+
+.winner-overlay.active {
+    display: flex;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.winner-content {
+    text-align: center;
+    animation: zoomIn 0.5s ease;
+}
+
+@keyframes zoomIn {
+    from { transform: scale(0.5); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.winner-content h2 {
+    font-size: 4rem;
+    color: #ffd700;
+    text-shadow: 0 0 30px rgba(255,215,0,0.8);
+    margin-bottom: 30px;
+    animation: pulse 1s ease infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.winner-team {
+    font-size: 3rem;
+    color: white;
+    margin-bottom: 20px;
+}
+
+.winner-team .avatar {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 5px solid #ffd700;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 5rem;
+    background: #333;
+}
+
+.winner-score {
+    font-size: 2.5rem;
+    color: #4fc3f7;
+}
+
+/* Fireworks */
+.firework {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    animation: firework-explode 1s ease-out forwards;
+}
+
+@keyframes firework-explode {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(20);
+        opacity: 0;
+    }
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .quiz-header h1 {
+        font-size: 2rem;
+    }
+
+    .team-marker {
+        width: 100px;
+        height: 70px;
+    }
+
+    .team-avatar {
+        width: 55px;
+        height: 55px;
+        font-size: 2rem;
+    }
+
+    .score-card {
+        min-width: 120px;
+        padding: 10px 15px;
+    }
+}

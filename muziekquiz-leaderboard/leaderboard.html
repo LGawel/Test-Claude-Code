@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muziekquiz Leaderboard</title>
+    <link rel="stylesheet" href="css/leaderboard.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header met quiz titel -->
+        <header class="quiz-header">
+            <h1>🎵 Muziekquiz Leaderboard 🎵</h1>
+            <div class="round-indicator">
+                <span>Ronde: </span>
+                <span id="current-round">1</span>
+                <span> / </span>
+                <span id="total-rounds">5</span>
+            </div>
+        </header>
+
+        <!-- De race track / route -->
+        <div class="race-container">
+            <div class="track">
+                <!-- Start lijn -->
+                <div class="start-line">
+                    <span>START</span>
+                </div>
+
+                <!-- De weg zelf -->
+                <div class="road" id="road">
+                    <!-- Team markers worden hier dynamisch toegevoegd -->
+                </div>
+
+                <!-- Finish lijn -->
+                <div class="finish-line">
+                    <span>FINISH</span>
+                    <div class="checkered-flag"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scorebord -->
+        <div class="scoreboard" id="scoreboard">
+            <!-- Scores worden hier dynamisch toegevoegd -->
+        </div>
+
+        <!-- Confetti container voor de finish -->
+        <div class="confetti-container" id="confetti-container"></div>
+
+        <!-- Winner overlay -->
+        <div class="winner-overlay" id="winner-overlay">
+            <div class="winner-content">
+                <h2>🏆 WINNAAR! 🏆</h2>
+                <div class="winner-team" id="winner-team"></div>
+                <div class="winner-score" id="winner-score"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio elements -->
+    <audio id="sound-points" preload="auto"></audio>
+    <audio id="sound-overtake" preload="auto"></audio>
+    <audio id="sound-winner" preload="auto"></audio>
+
+    <script src="js/shared.js"></script>
+    <script src="js/leaderboard.js"></script>
+</body>
+</html>

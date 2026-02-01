@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muziekquiz Admin Panel</title>
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎛️ Muziekquiz Admin Panel</h1>
+            <p class="subtitle">Beheer teams en voer punten in</p>
+        </header>
+
+        <!-- Tabs voor navigatie -->
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="teams">Teams Beheren</button>
+            <button class="tab-btn" data-tab="scores">Punten Invoeren</button>
+            <button class="tab-btn" data-tab="settings">Instellingen</button>
+        </nav>
+
+        <!-- Tab: Teams Beheren -->
+        <section id="tab-teams" class="tab-content active">
+            <h2>Teams Aanmaken</h2>
+
+            <div class="team-form">
+                <div class="form-group">
+                    <label for="team-name">Teamnaam:</label>
+                    <input type="text" id="team-name" placeholder="Bijv. De Muzikanten">
+                </div>
+
+                <div class="form-group">
+                    <label for="team-person">Bekend Persoon:</label>
+                    <select id="team-person">
+                        <option value="">-- Kies een persoon --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="team-vehicle">Vervoersmiddel:</label>
+                    <select id="team-vehicle">
+                        <option value="">-- Kies een voertuig --</option>
+                    </select>
+                </div>
+
+                <button id="add-team-btn" class="btn btn-primary">Team Toevoegen</button>
+            </div>
+
+            <h3>Huidige Teams (<span id="team-count">0</span>/6)</h3>
+            <div class="teams-list" id="teams-list">
+                <p class="no-teams">Nog geen teams aangemaakt.</p>
+            </div>
+
+            <button id="clear-teams-btn" class="btn btn-danger">Alle Teams Verwijderen</button>
+        </section>
+
+        <!-- Tab: Punten Invoeren -->
+        <section id="tab-scores" class="tab-content">
+            <h2>Punten Invoeren</h2>
+
+            <div class="round-selector">
+                <label for="select-round">Huidige Ronde:</label>
+                <select id="select-round">
+                    <option value="1">Ronde 1</option>
+                    <option value="2">Ronde 2</option>
+                    <option value="3">Ronde 3</option>
+                    <option value="4">Ronde 4</option>
+                    <option value="5">Ronde 5</option>
+                </select>
+            </div>
+
+            <div class="scores-input" id="scores-input">
+                <p class="no-teams">Voeg eerst teams toe in het "Teams Beheren" tabblad.</p>
+            </div>
+
+            <div class="score-actions">
+                <button id="publish-scores-btn" class="btn btn-primary btn-large">
+                    📢 Publiceer Punten naar Leaderboard
+                </button>
+                <button id="finish-quiz-btn" class="btn btn-success btn-large">
+                    🏁 Quiz Afronden & Winnaar Tonen
+                </button>
+            </div>
+        </section>
+
+        <!-- Tab: Instellingen -->
+        <section id="tab-settings" class="tab-content">
+            <h2>Quiz Instellingen</h2>
+
+            <div class="form-group">
+                <label for="total-rounds">Aantal Rondes:</label>
+                <input type="number" id="total-rounds-input" value="5" min="1" max="20">
+            </div>
+
+            <div class="form-group">
+                <label for="max-points">Max Punten per Ronde:</label>
+                <input type="number" id="max-points-input" value="10" min="1" max="100">
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="sound-enabled" checked>
+                    Geluidseffecten ingeschakeld
+                </label>
+            </div>
+
+            <button id="save-settings-btn" class="btn btn-primary">Instellingen Opslaan</button>
+
+            <hr>
+
+            <h3>Quiz Resetten</h3>
+            <p class="warning-text">Let op: dit verwijdert alle teams en scores!</p>
+            <button id="reset-quiz-btn" class="btn btn-danger">Volledige Quiz Resetten</button>
+        </section>
+    </div>
+
+    <script src="js/shared.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>
