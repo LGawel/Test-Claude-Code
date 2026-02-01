@@ -118,33 +118,27 @@ function renderTeams() {
         if (!marker) {
             marker = createTeamMarker(team);
             road.appendChild(marker);
+        } else {
+            // Update existing marker image if changed
+            updateTeamMarker(marker, team);
         }
 
-        // Calculate position on road (0% to 90%)
+        // Calculate position on road (5% to 85% to keep markers in view)
         const totalScore = calculateTotalScore(team);
         const progressPercent = maxPossibleScore > 0
-            ? Math.min((totalScore / maxPossibleScore) * 90, 90)
-            : 0;
+            ? Math.min(5 + (totalScore / maxPossibleScore) * 80, 85)
+            : 5;
 
         // Calculate vertical position based on ranking to avoid overlap
         const position = sortedTeams.findIndex(t => t.id === team.id);
-        const laneHeight = road.offsetHeight / Math.max(teams.length, 1);
-        const topPosition = (position * laneHeight) + (laneHeight / 2) - 40;
+        const numTeams = Math.max(teams.length, 1);
+        const availableHeight = road.offsetHeight - 100; // Leave padding
+        const laneHeight = availableHeight / numTeams;
+        const topPosition = 20 + (position * laneHeight) + (laneHeight / 2) - 50;
 
         // Apply position with animation
         marker.style.left = `${progressPercent}%`;
-        marker.style.top = `${topPosition}px`;
-
-        // Update avatar content
-        const avatarDiv = marker.querySelector('.team-avatar');
-        avatarDiv.textContent = getTeamAvatarEmoji(team);
-
-        // Update color based on person
-        const person = getPersonById(team.personId);
-        if (person) {
-            avatarDiv.style.borderColor = person.color;
-            avatarDiv.style.boxShadow = `0 4px 15px ${person.color}40`;
-        }
+        marker.style.top = `${Math.max(10, topPosition)}px`;
     });
 
     // Remove markers for deleted teams
@@ -164,16 +158,41 @@ function createTeamMarker(team) {
     marker.className = 'team-marker';
     marker.dataset.teamId = team.id;
 
-    const person = getPersonById(team.personId);
+    const color = team.color || '#667eea';
+    const avatarContent = team.image
+        ? `<img src="${team.image}" alt="${escapeHtml(team.name)}">`
+        : `<span class="emoji-fallback">${getTeamAvatarEmoji(team)}</span>`;
 
     marker.innerHTML = `
-        <div class="team-avatar" style="border-color: ${person?.color || '#fff'}">
-            ${getTeamAvatarEmoji(team)}
+        <div class="team-avatar" style="border-color: ${color}; box-shadow: 0 4px 20px ${color}60;">
+            ${avatarContent}
         </div>
-        <div class="team-marker-name">${escapeHtml(team.name)}</div>
+        <div class="team-marker-name" style="background: ${color};">${escapeHtml(team.name)}</div>
     `;
 
     return marker;
+}
+
+/**
+ * Update existing team marker
+ */
+function updateTeamMarker(marker, team) {
+    const avatarDiv = marker.querySelector('.team-avatar');
+    const nameDiv = marker.querySelector('.team-marker-name');
+    const color = team.color || '#667eea';
+
+    // Update image if team has one
+    if (team.image) {
+        const existingImg = avatarDiv.querySelector('img');
+        if (!existingImg || existingImg.src !== team.image) {
+            avatarDiv.innerHTML = `<img src="${team.image}" alt="${escapeHtml(team.name)}">`;
+        }
+    }
+
+    // Update colors
+    avatarDiv.style.borderColor = color;
+    avatarDiv.style.boxShadow = `0 4px 20px ${color}60`;
+    nameDiv.style.background = color;
 }
 
 /**
@@ -255,10 +274,12 @@ function checkWinner() {
 
     // Update winner display
     const winnerTeamDiv = document.getElementById('winner-team');
-    const avatar = getTeamAvatarEmoji(winner);
+    const avatarContent = winner.image
+        ? `<img src="${winner.image}" alt="${escapeHtml(winner.name)}">`
+        : getTeamAvatarEmoji(winner);
 
     winnerTeamDiv.innerHTML = `
-        <div class="avatar">${avatar}</div>
+        <div class="avatar" style="border-color: ${winner.color || '#ffd700'}">${avatarContent}</div>
         <div>${escapeHtml(winner.name)}</div>
     `;
 

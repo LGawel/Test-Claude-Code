@@ -2,6 +2,9 @@
  * Admin Panel for Music Quiz Leaderboard
  */
 
+// Store current image data
+let currentImageData = null;
+
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initTeamForm();
@@ -41,22 +44,18 @@ function initTabs() {
  * Team Form Initialization
  */
 function initTeamForm() {
-    // Populate person dropdown
-    const personSelect = document.getElementById('team-person');
-    FAMOUS_PERSONS.forEach(person => {
-        const option = document.createElement('option');
-        option.value = person.id;
-        option.textContent = `${person.emoji} ${person.name}`;
-        personSelect.appendChild(option);
-    });
+    // File upload handler
+    const fileInput = document.getElementById('team-image-file');
+    fileInput.addEventListener('change', handleFileUpload);
 
-    // Populate vehicle dropdown
-    const vehicleSelect = document.getElementById('team-vehicle');
-    VEHICLES.forEach(vehicle => {
-        const option = document.createElement('option');
-        option.value = vehicle.id;
-        option.textContent = `${vehicle.emoji} ${vehicle.name}`;
-        vehicleSelect.appendChild(option);
+    // URL load button
+    document.getElementById('load-url-btn').addEventListener('click', handleUrlLoad);
+
+    // URL input - also load on Enter
+    document.getElementById('team-image-url').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            handleUrlLoad();
+        }
     });
 
     // Add team button
@@ -73,16 +72,118 @@ function initTeamForm() {
 }
 
 /**
+ * Handle file upload
+ */
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        alert('Selecteer een afbeelding bestand!');
+        return;
+    }
+
+    // Check file size (max 2MB for localStorage)
+    if (file.size > 2 * 1024 * 1024) {
+        alert('Afbeelding is te groot! Maximum 2MB.');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        currentImageData = e.target.result;
+        updateImagePreview(currentImageData);
+    };
+    reader.readAsDataURL(file);
+}
+
+/**
+ * Handle URL load
+ */
+function handleUrlLoad() {
+    const urlInput = document.getElementById('team-image-url');
+    const url = urlInput.value.trim();
+
+    if (!url) {
+        alert('Voer een afbeelding URL in!');
+        return;
+    }
+
+    // Test if URL is valid image
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    img.onload = () => {
+        // Try to convert to base64 for local storage
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Resize if too large
+            const maxSize = 300;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxSize || height > maxSize) {
+                if (width > height) {
+                    height = (height / width) * maxSize;
+                    width = maxSize;
+                } else {
+                    width = (width / height) * maxSize;
+                    height = maxSize;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            currentImageData = canvas.toDataURL('image/png');
+            updateImagePreview(currentImageData);
+        } catch (e) {
+            // CORS issue - just use the URL directly
+            currentImageData = url;
+            updateImagePreview(url);
+        }
+    };
+
+    img.onerror = () => {
+        alert('Kon afbeelding niet laden. Controleer de URL.');
+    };
+
+    img.src = url;
+}
+
+/**
+ * Update image preview
+ */
+function updateImagePreview(src) {
+    const preview = document.getElementById('image-preview');
+    preview.innerHTML = `<img src="${src}" alt="Preview">`;
+    preview.classList.add('has-image');
+}
+
+/**
+ * Clear image preview
+ */
+function clearImagePreview() {
+    const preview = document.getElementById('image-preview');
+    preview.innerHTML = '<span class="placeholder-text">Geen afbeelding</span>';
+    preview.classList.remove('has-image');
+    currentImageData = null;
+    document.getElementById('team-image-file').value = '';
+    document.getElementById('team-image-url').value = '';
+}
+
+/**
  * Add a new team
  */
 function addTeam() {
     const nameInput = document.getElementById('team-name');
-    const personSelect = document.getElementById('team-person');
-    const vehicleSelect = document.getElementById('team-vehicle');
+    const colorInput = document.getElementById('team-color');
 
     const name = nameInput.value.trim();
-    const personId = personSelect.value;
-    const vehicleId = vehicleSelect.value;
+    const color = colorInput.value;
 
     // Validation
     if (!name) {
@@ -91,15 +192,8 @@ function addTeam() {
         return;
     }
 
-    if (!personId) {
-        alert('Kies een bekend persoon!');
-        personSelect.focus();
-        return;
-    }
-
-    if (!vehicleId) {
-        alert('Kies een voertuig!');
-        vehicleSelect.focus();
+    if (!currentImageData) {
+        alert('Upload of laad eerst een afbeelding voor het team!');
         return;
     }
 
@@ -120,8 +214,8 @@ function addTeam() {
     const newTeam = {
         id: Date.now().toString(),
         name: name,
-        personId: personId,
-        vehicleId: vehicleId,
+        image: currentImageData,
+        color: color,
         scores: {}
     };
 
@@ -130,8 +224,7 @@ function addTeam() {
 
     // Reset form
     nameInput.value = '';
-    personSelect.value = '';
-    vehicleSelect.value = '';
+    clearImagePreview();
 
     // Refresh list
     loadTeamsList();
@@ -154,16 +247,16 @@ function loadTeamsList() {
     }
 
     container.innerHTML = teams.map(team => {
-        const person = getPersonById(team.personId);
-        const vehicle = getVehicleById(team.vehicleId);
-        const avatarEmoji = getTeamAvatarEmoji(team);
+        const avatarContent = team.image
+            ? `<img src="${team.image}" alt="${escapeHtml(team.name)}">`
+            : getTeamAvatarEmoji(team);
 
         return `
             <div class="team-item" data-team-id="${team.id}">
-                <div class="avatar">${avatarEmoji}</div>
+                <div class="avatar" style="border: 3px solid ${team.color || '#667eea'}">${avatarContent}</div>
                 <div class="info">
                     <div class="name">${escapeHtml(team.name)}</div>
-                    <div class="details">${person?.name || 'Onbekend'} op ${vehicle?.name || 'Onbekend'}</div>
+                    <div class="details" style="color: ${team.color || '#667eea'}">●  Team kleur</div>
                 </div>
                 <button class="delete-btn" onclick="deleteTeam('${team.id}')" title="Verwijder team">×</button>
             </div>
@@ -234,13 +327,15 @@ function updateScoresInput() {
     }
 
     container.innerHTML = teams.map(team => {
-        const avatarEmoji = getTeamAvatarEmoji(team);
+        const avatarContent = team.image
+            ? `<img src="${team.image}" alt="${escapeHtml(team.name)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+            : getTeamAvatarEmoji(team);
         const totalScore = calculateTotalScore(team);
         const roundScore = team.scores?.[currentRound] || 0;
 
         return `
             <div class="score-input-item" data-team-id="${team.id}">
-                <div class="avatar">${avatarEmoji}</div>
+                <div class="avatar" style="border: 2px solid ${team.color || '#667eea'}">${avatarContent}</div>
                 <div class="team-info">
                     <div class="name">${escapeHtml(team.name)}</div>
                     <div class="current-score">Totaal: ${totalScore} punten</div>
