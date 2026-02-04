@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-ice-900 text-white min-h-screen font-sans;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-ice-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-ice-600 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ice-500;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-ice-500 to-ice-600 hover:from-ice-400 hover:to-ice-500
+           text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200
+           shadow-lg hover:shadow-ice-500/25 active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply bg-ice-800/50 hover:bg-ice-700/50 text-white font-medium py-2 px-4
+           rounded-lg border border-ice-600/30 transition-all duration-200
+           hover:border-ice-500/50;
+  }
+
+  .btn-aurora {
+    @apply bg-aurora-gradient text-white font-bold py-2 px-6 rounded-lg
+           transition-all duration-200 shadow-lg hover:shadow-aurora-blue/30
+           active:scale-95;
+  }
+
+  .card {
+    @apply bg-ice-800/40 backdrop-blur-sm rounded-xl border border-ice-700/30
+           shadow-xl;
+  }
+
+  .card-hover {
+    @apply card hover:border-ice-500/50 hover:shadow-ice-500/10
+           transition-all duration-300 cursor-pointer;
+  }
+
+  .input-field {
+    @apply w-full bg-ice-800/50 border border-ice-600/30 rounded-lg px-4 py-3
+           text-white placeholder-ice-400 focus:outline-none focus:border-ice-500
+           focus:ring-2 focus:ring-ice-500/20 transition-all duration-200;
+  }
+
+  .sport-badge {
+    @apply inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm
+           bg-ice-700/50 border border-ice-600/30;
+  }
+
+  .medal-gold {
+    @apply bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-900;
+  }
+
+  .medal-silver {
+    @apply bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800;
+  }
+
+  .medal-bronze {
+    @apply bg-gradient-to-br from-orange-300 to-orange-500 text-orange-900;
+  }
+
+  .snowflake {
+    @apply absolute text-white/20 pointer-events-none select-none;
+    animation: snowfall 10s linear infinite;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-ice-300 to-frost-dark;
+  }
+
+  .text-aurora {
+    @apply bg-clip-text text-transparent bg-aurora-gradient;
+  }
+
+  .glass {
+    @apply bg-white/10 backdrop-blur-md;
+  }
+}
+
+/* Custom scrollbar for mobile */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+}
+
+/* Trophy cabinet animation */
+.trophy-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.trophy-shine::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 100%
+  );
+  transform: rotate(45deg);
+  animation: shine 3s ease-in-out infinite;
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) rotate(45deg); }
+}
