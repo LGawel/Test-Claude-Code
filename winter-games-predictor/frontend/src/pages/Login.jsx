@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Snowflake, Mail, Lock, AlertCircle } from 'lucide-react';
 
 function Login() {
-  const { login } = useAuth();
+  const { login, demoLogin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,6 +19,18 @@ function Login() {
       await login(email, password);
     } catch (err) {
       setError(err.response?.data?.error || 'Inloggen mislukt. Probeer het opnieuw.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await demoLogin();
+    } catch (err) {
+      setError('Demo login mislukt. Probeer het opnieuw.');
     } finally {
       setLoading(false);
     }
@@ -113,6 +125,24 @@ function Login() {
               )}
             </button>
           </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-ice-600/30"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-ice-800/40 text-ice-400">of</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            disabled={loading}
+            className="btn-aurora w-full py-3 disabled:opacity-50"
+          >
+            Demo Login (zonder registratie)
+          </button>
 
           <p className="text-center mt-6 text-ice-400">
             Nog geen account?{' '}

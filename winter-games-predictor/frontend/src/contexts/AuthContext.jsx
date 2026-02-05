@@ -45,6 +45,29 @@ export function AuthProvider({ children }) {
     return response.data;
   };
 
+  const demoLogin = async () => {
+    // Try to login as demo user, if not exists, register first
+    try {
+      const response = await api.post('/auth/login', {
+        email: 'demo@wintergames.nl',
+        password: 'demo123'
+      });
+      localStorage.setItem('token', response.data.token);
+      setUser(response.data.user);
+      return response.data;
+    } catch (error) {
+      // Demo user doesn't exist, create it
+      const response = await api.post('/auth/register', {
+        email: 'demo@wintergames.nl',
+        password: 'demo123',
+        nickname: 'DemoSpeler'
+      });
+      localStorage.setItem('token', response.data.token);
+      setUser(response.data.user);
+      return response.data;
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
@@ -55,7 +78,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser, demoLogin }}>
       {children}
     </AuthContext.Provider>
   );
