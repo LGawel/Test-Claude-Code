@@ -1,21 +1,10 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+const { initDatabase } = require('../config/database');
 
-// Ensure data directory exists
-const dataDir = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
+async function initializeDatabase() {
+  const db = await initDatabase();
 
-const dbPath = path.join(dataDir, 'wintergames.db');
-const db = new Database(dbPath);
-
-// Enable foreign keys
-db.pragma('foreign_keys = ON');
-
-// Create tables
-const createTables = `
+  // Create tables
+  const createTables = `
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -223,117 +212,110 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 `;
 
-// Execute table creation
-db.exec(createTables);
+  // Execute table creation
+  db.exec(createTables);
 
-// Insert default sports
-const insertSports = db.prepare(`
-  INSERT OR IGNORE INTO sports (id, name, icon, description) VALUES (?, ?, ?, ?)
-`);
+  // Insert default sports
+  const sports = [
+    [1, 'Schaatsen', '⛸️', 'Langebaanschaatsen op verschillende afstanden'],
+    [2, 'Bobsleeën', '🛷', 'Bobslee races op de ijsbaan'],
+    [3, 'Snowboarden', '🏂', 'Snowboard evenementen zoals halfpipe, slopestyle en boardercross']
+  ];
 
-const sports = [
-  [1, 'Schaatsen', '⛸️', 'Langebaanschaatsen op verschillende afstanden'],
-  [2, 'Bobsleeën', '🛷', 'Bobslee races op de ijsbaan'],
-  [3, 'Snowboarden', '🏂', 'Snowboard evenementen zoals halfpipe, slopestyle en boardercross']
-];
+  sports.forEach(sport => {
+    db.prepare('INSERT OR IGNORE INTO sports (id, name, icon, description) VALUES (?, ?, ?, ?)').run(...sport);
+  });
 
-sports.forEach(sport => insertSports.run(...sport));
+  // Insert default trophies
+  const trophies = [
+    [1, 'Poule Kampioen', 'Winnaar van een poule', '🏆', 'pool_winner'],
+    [2, 'Perfecte Voorspelling', 'Volledige top 3 correct voorspeld', '🎯', 'perfect_prediction'],
+    [3, 'Wereldrecord Voorspeller', 'Correct voorspeld dat er een wereldrecord zou worden verbroken', '🌍', 'world_record'],
+    [4, 'Op Dreef', '5 correcte voorspellingen op rij', '🔥', 'streak_5'],
+    [5, 'Onstopbaar', '10 correcte voorspellingen op rij', '⚡', 'streak_10'],
+    [6, 'Schaats Expert', '10 correcte schaatsvoorspellingen', '⛸️', 'sport_expert_skating'],
+    [7, 'Bobslee Meester', '10 correcte bobsleevoorspellingen', '🛷', 'sport_expert_bobsled'],
+    [8, 'Snowboard Pro', '10 correcte snowboardvoorspellingen', '🏂', 'sport_expert_snowboard'],
+    [9, 'Eerste Bloed', 'Eerste voorspelling gemaakt', '🩸', 'first_prediction'],
+    [10, 'Veteraan', 'Deelgenomen aan 10 poules', '🎖️', 'veteran']
+  ];
 
-// Insert default trophies
-const insertTrophies = db.prepare(`
-  INSERT OR IGNORE INTO trophies (id, name, description, icon, type) VALUES (?, ?, ?, ?, ?)
-`);
+  trophies.forEach(trophy => {
+    db.prepare('INSERT OR IGNORE INTO trophies (id, name, description, icon, type) VALUES (?, ?, ?, ?, ?)').run(...trophy);
+  });
 
-const trophies = [
-  [1, 'Poule Kampioen', 'Winnaar van een poule', '🏆', 'pool_winner'],
-  [2, 'Perfecte Voorspelling', 'Volledige top 3 correct voorspeld', '🎯', 'perfect_prediction'],
-  [3, 'Wereldrecord Voorspeller', 'Correct voorspeld dat er een wereldrecord zou worden verbroken', '🌍', 'world_record'],
-  [4, 'Op Dreef', '5 correcte voorspellingen op rij', '🔥', 'streak_5'],
-  [5, 'Onstopbaar', '10 correcte voorspellingen op rij', '⚡', 'streak_10'],
-  [6, 'Schaats Expert', '10 correcte schaatsvoorspellingen', '⛸️', 'sport_expert_skating'],
-  [7, 'Bobslee Meester', '10 correcte bobsleevoorspellingen', '🛷', 'sport_expert_bobsled'],
-  [8, 'Snowboard Pro', '10 correcte snowboardvoorspellingen', '🏂', 'sport_expert_snowboard'],
-  [9, 'Eerste Bloed', 'Eerste voorspelling gemaakt', '🩸', 'first_prediction'],
-  [10, 'Veteraan', 'Deelgenomen aan 10 poules', '🎖️', 'veteran']
-];
+  // Insert sample tournament (Winter Olympics 2026)
+  db.prepare('INSERT OR IGNORE INTO tournaments (id, name, start_date, end_date, location, is_active) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(1, 'Olympische Winterspelen 2026', '2026-02-06', '2026-02-22', 'Milano-Cortina, Italië', 1);
 
-trophies.forEach(trophy => insertTrophies.run(...trophy));
+  // Insert sample competitors
+  const competitors = [
+    // Schaatsers
+    [1, 'Jutta Leerdam', 'Nederland', 'NL', 1],
+    [2, 'Kjeld Nuis', 'Nederland', 'NL', 1],
+    [3, 'Thomas Krol', 'Nederland', 'NL', 1],
+    [4, 'Patrick Roest', 'Nederland', 'NL', 1],
+    [5, 'Nils van der Poel', 'Zweden', 'SE', 1],
+    [6, 'Gao Tingyu', 'China', 'CN', 1],
+    [7, 'Miho Takagi', 'Japan', 'JP', 1],
+    [8, 'Brittany Bowe', 'Verenigde Staten', 'US', 1],
+    // Bobsleeërs
+    [9, 'Francesco Friedrich', 'Duitsland', 'DE', 2],
+    [10, 'Johannes Lochner', 'Duitsland', 'DE', 2],
+    [11, 'Kaillie Humphries', 'Verenigde Staten', 'US', 2],
+    [12, 'Laura Nolte', 'Duitsland', 'DE', 2],
+    // Snowboarders
+    [13, 'Shaun White', 'Verenigde Staten', 'US', 3],
+    [14, 'Chloe Kim', 'Verenigde Staten', 'US', 3],
+    [15, 'Ayumu Hirano', 'Japan', 'JP', 3],
+    [16, 'Lindsey Jacobellis', 'Verenigde Staten', 'US', 3],
+    [17, 'Scotty James', 'Australië', 'AU', 3],
+    [18, 'Anna Gasser', 'Oostenrijk', 'AT', 3]
+  ];
 
-// Insert sample tournament (Winter Olympics 2026)
-const insertTournament = db.prepare(`
-  INSERT OR IGNORE INTO tournaments (id, name, start_date, end_date, location, is_active)
-  VALUES (?, ?, ?, ?, ?, ?)
-`);
+  competitors.forEach(comp => {
+    db.prepare('INSERT OR IGNORE INTO competitors (id, name, country, country_code, sport_id) VALUES (?, ?, ?, ?, ?)').run(...comp);
+  });
 
-insertTournament.run(1, 'Olympische Winterspelen 2026', '2026-02-06', '2026-02-22', 'Milano-Cortina, Italië', 1);
+  // Insert sample events
+  const events = [
+    // Schaatsen
+    [1, 1, 1, 'Schaatsen - 500m Mannen', '2026-02-08 14:00:00', '2026-02-08 13:00:00', '33.98', 'Gao Tingyu'],
+    [2, 1, 1, 'Schaatsen - 500m Vrouwen', '2026-02-08 16:00:00', '2026-02-08 15:00:00', '36.36', 'Nao Kodaira'],
+    [3, 1, 1, 'Schaatsen - 1000m Mannen', '2026-02-10 14:00:00', '2026-02-10 13:00:00', '1:06.18', 'Pavel Kulizhnikov'],
+    [4, 1, 1, 'Schaatsen - 1000m Vrouwen', '2026-02-10 16:00:00', '2026-02-10 15:00:00', '1:11.61', 'Brittany Bowe'],
+    [5, 1, 1, 'Schaatsen - 1500m Mannen', '2026-02-12 14:00:00', '2026-02-12 13:00:00', '1:40.17', 'Kjeld Nuis'],
+    [6, 1, 1, 'Schaatsen - 5000m Mannen', '2026-02-14 14:00:00', '2026-02-14 13:00:00', '6:01.56', 'Nils van der Poel'],
+    // Bobsleeën
+    [7, 1, 2, 'Bobslee - Tweemans Mannen', '2026-02-15 14:00:00', '2026-02-15 13:00:00', null, null],
+    [8, 1, 2, 'Bobslee - Tweemans Vrouwen', '2026-02-16 14:00:00', '2026-02-16 13:00:00', null, null],
+    [9, 1, 2, 'Bobslee - Viermans', '2026-02-18 14:00:00', '2026-02-18 13:00:00', null, null],
+    // Snowboarden
+    [10, 1, 3, 'Snowboard - Halfpipe Mannen', '2026-02-11 10:00:00', '2026-02-11 09:00:00', null, null],
+    [11, 1, 3, 'Snowboard - Halfpipe Vrouwen', '2026-02-11 14:00:00', '2026-02-11 13:00:00', null, null],
+    [12, 1, 3, 'Snowboard - Slopestyle Mannen', '2026-02-13 10:00:00', '2026-02-13 09:00:00', null, null],
+    [13, 1, 3, 'Snowboard - Slopestyle Vrouwen', '2026-02-13 14:00:00', '2026-02-13 13:00:00', null, null],
+    [14, 1, 3, 'Snowboard - Boardercross Mannen', '2026-02-17 10:00:00', '2026-02-17 09:00:00', null, null],
+    [15, 1, 3, 'Snowboard - Boardercross Vrouwen', '2026-02-17 14:00:00', '2026-02-17 13:00:00', null, null]
+  ];
 
-// Insert sample competitors
-const insertCompetitor = db.prepare(`
-  INSERT OR IGNORE INTO competitors (id, name, country, country_code, sport_id)
-  VALUES (?, ?, ?, ?, ?)
-`);
+  events.forEach(event => {
+    db.prepare('INSERT OR IGNORE INTO events (id, tournament_id, sport_id, name, event_date, deadline, world_record_time, world_record_holder) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(...event);
+  });
 
-const competitors = [
-  // Schaatsers
-  [1, 'Jutta Leerdam', 'Nederland', 'NL', 1],
-  [2, 'Kjeld Nuis', 'Nederland', 'NL', 1],
-  [3, 'Thomas Krol', 'Nederland', 'NL', 1],
-  [4, 'Patrick Roest', 'Nederland', 'NL', 1],
-  [5, 'Nils van der Poel', 'Zweden', 'SE', 1],
-  [6, 'Gao Tingyu', 'China', 'CN', 1],
-  [7, 'Miho Takagi', 'Japan', 'JP', 1],
-  [8, 'Brittany Bowe', 'Verenigde Staten', 'US', 1],
-  // Bobsleeërs
-  [9, 'Francesco Friedrich', 'Duitsland', 'DE', 2],
-  [10, 'Johannes Lochner', 'Duitsland', 'DE', 2],
-  [11, 'Kaillie Humphries', 'Verenigde Staten', 'US', 2],
-  [12, 'Laura Nolte', 'Duitsland', 'DE', 2],
-  // Snowboarders
-  [13, 'Shaun White', 'Verenigde Staten', 'US', 3],
-  [14, 'Chloe Kim', 'Verenigde Staten', 'US', 3],
-  [15, 'Ayumu Hirano', 'Japan', 'JP', 3],
-  [16, 'Lindsey Jacobellis', 'Verenigde Staten', 'US', 3],
-  [17, 'Scotty James', 'Australië', 'AU', 3],
-  [18, 'Anna Gasser', 'Oostenrijk', 'AT', 3]
-];
+  // Save database to disk
+  db.save();
 
-competitors.forEach(comp => insertCompetitor.run(...comp));
+  console.log('✅ Database initialized successfully!');
+  console.log('📍 Database location: data/wintergames.db');
+  console.log('🏅 Created tables: users, sports, tournaments, events, competitors, pools, predictions, trophies, etc.');
+  console.log('🎿 Added 3 winter sports: Schaatsen, Bobsleeën, Snowboarden');
+  console.log('🏆 Added 10 trophies');
+  console.log('👥 Added 18 sample competitors');
+  console.log('📅 Added 15 sample events for Winter Olympics 2026');
+}
 
-// Insert sample events
-const insertEvent = db.prepare(`
-  INSERT OR IGNORE INTO events (id, tournament_id, sport_id, name, event_date, deadline, world_record_time, world_record_holder)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`);
-
-const events = [
-  // Schaatsen
-  [1, 1, 1, 'Schaatsen - 500m Mannen', '2026-02-08 14:00:00', '2026-02-08 13:00:00', '33.98', 'Gao Tingyu'],
-  [2, 1, 1, 'Schaatsen - 500m Vrouwen', '2026-02-08 16:00:00', '2026-02-08 15:00:00', '36.36', 'Nao Kodaira'],
-  [3, 1, 1, 'Schaatsen - 1000m Mannen', '2026-02-10 14:00:00', '2026-02-10 13:00:00', '1:06.18', 'Pavel Kulizhnikov'],
-  [4, 1, 1, 'Schaatsen - 1000m Vrouwen', '2026-02-10 16:00:00', '2026-02-10 15:00:00', '1:11.61', 'Brittany Bowe'],
-  [5, 1, 1, 'Schaatsen - 1500m Mannen', '2026-02-12 14:00:00', '2026-02-12 13:00:00', '1:40.17', 'Kjeld Nuis'],
-  [6, 1, 1, 'Schaatsen - 5000m Mannen', '2026-02-14 14:00:00', '2026-02-14 13:00:00', '6:01.56', 'Nils van der Poel'],
-  // Bobsleeën
-  [7, 1, 2, 'Bobslee - Tweemans Mannen', '2026-02-15 14:00:00', '2026-02-15 13:00:00', null, null],
-  [8, 1, 2, 'Bobslee - Tweemans Vrouwen', '2026-02-16 14:00:00', '2026-02-16 13:00:00', null, null],
-  [9, 1, 2, 'Bobslee - Viermans', '2026-02-18 14:00:00', '2026-02-18 13:00:00', null, null],
-  // Snowboarden
-  [10, 1, 3, 'Snowboard - Halfpipe Mannen', '2026-02-11 10:00:00', '2026-02-11 09:00:00', null, null],
-  [11, 1, 3, 'Snowboard - Halfpipe Vrouwen', '2026-02-11 14:00:00', '2026-02-11 13:00:00', null, null],
-  [12, 1, 3, 'Snowboard - Slopestyle Mannen', '2026-02-13 10:00:00', '2026-02-13 09:00:00', null, null],
-  [13, 1, 3, 'Snowboard - Slopestyle Vrouwen', '2026-02-13 14:00:00', '2026-02-13 13:00:00', null, null],
-  [14, 1, 3, 'Snowboard - Boardercross Mannen', '2026-02-17 10:00:00', '2026-02-17 09:00:00', null, null],
-  [15, 1, 3, 'Snowboard - Boardercross Vrouwen', '2026-02-17 14:00:00', '2026-02-17 13:00:00', null, null]
-];
-
-events.forEach(event => insertEvent.run(...event));
-
-console.log('✅ Database initialized successfully!');
-console.log('📍 Database location:', dbPath);
-console.log('🏅 Created tables: users, sports, tournaments, events, competitors, pools, predictions, trophies, etc.');
-console.log('🎿 Added 3 winter sports: Schaatsen, Bobsleeën, Snowboarden');
-console.log('🏆 Added 10 trophies');
-console.log('👥 Added 18 sample competitors');
-console.log('📅 Added 15 sample events for Winter Olympics 2026');
-
-db.close();
+initializeDatabase().catch(err => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
+});

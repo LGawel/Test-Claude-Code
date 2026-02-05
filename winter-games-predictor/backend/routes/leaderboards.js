@@ -1,5 +1,5 @@
 const express = require('express');
-const db = require('../config/database');
+const { getDb } = require('../config/database');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -8,13 +8,13 @@ const router = express.Router();
 router.get('/pool/:poolId', authenticateToken, (req, res) => {
   try {
     // Check if user is member
-    const isMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const isMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(req.params.poolId, req.user.id);
     if (!isMember) {
       return res.status(403).json({ error: 'You are not a member of this pool' });
     }
 
-    const leaderboard = db.prepare(`
+    const leaderboard = getDb().prepare(`
       SELECT
         u.id,
         u.nickname,
@@ -37,7 +37,7 @@ router.get('/pool/:poolId', authenticateToken, (req, res) => {
     });
 
     // Get pool info
-    const pool = db.prepare(`
+    const pool = getDb().prepare(`
       SELECT p.name, p.prize_pool, p.entry_fee,
              t.name as tournament_name
       FROM pools p
@@ -60,7 +60,7 @@ router.get('/global', optionalAuth, (req, res) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
 
-    const leaderboard = db.prepare(`
+    const leaderboard = getDb().prepare(`
       SELECT
         u.id,
         u.nickname,
@@ -83,7 +83,7 @@ router.get('/global', optionalAuth, (req, res) => {
       entry.rank = parseInt(offset) + index + 1;
     });
 
-    const totalUsers = db.prepare(
+    const totalUsers = getDb().prepare(
       'SELECT COUNT(*) as count FROM user_stats WHERE total_predictions > 0'
     ).get().count;
 
@@ -104,7 +104,7 @@ router.get('/sport/:sportId', optionalAuth, (req, res) => {
   try {
     const { limit = 50 } = req.query;
 
-    const leaderboard = db.prepare(`
+    const leaderboard = getDb().prepare(`
       SELECT
         u.id,
         u.nickname,
@@ -126,7 +126,7 @@ router.get('/sport/:sportId', optionalAuth, (req, res) => {
       entry.rank = index + 1;
     });
 
-    const sport = db.prepare('SELECT * FROM sports WHERE id = ?').get(req.params.sportId);
+    const sport = getDb().prepare('SELECT * FROM sports WHERE id = ?').get(req.params.sportId);
 
     res.json({
       sport,
@@ -144,14 +144,14 @@ router.get('/pool/:poolId/rank/:userId', authenticateToken, (req, res) => {
     const { poolId, userId } = req.params;
 
     // Check if user is member
-    const isMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const isMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(poolId, req.user.id);
     if (!isMember) {
       return res.status(403).json({ error: 'You are not a member of this pool' });
     }
 
     // Get all members sorted by points
-    const members = db.prepare(`
+    const members = getDb().prepare(`
       SELECT
         pm.user_id,
         COALESCE(SUM(p.points_earned), 0) as total_points

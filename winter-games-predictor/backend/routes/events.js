@@ -1,5 +1,5 @@
 const express = require('express');
-const db = require('../config/database');
+const { getDb } = require('../config/database');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -7,7 +7,7 @@ const router = express.Router();
 // Get all events for a tournament
 router.get('/tournament/:tournamentId', optionalAuth, (req, res) => {
   try {
-    const events = db.prepare(`
+    const events = getDb().prepare(`
       SELECT e.*, s.name as sport_name, s.icon as sport_icon
       FROM events e
       JOIN sports s ON e.sport_id = s.id
@@ -26,18 +26,18 @@ router.get('/tournament/:tournamentId', optionalAuth, (req, res) => {
 router.get('/pool/:poolId', authenticateToken, (req, res) => {
   try {
     // Check if user is member
-    const isMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const isMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(req.params.poolId, req.user.id);
     if (!isMember) {
       return res.status(403).json({ error: 'You are not a member of this pool' });
     }
 
-    const pool = db.prepare('SELECT tournament_id FROM pools WHERE id = ?').get(req.params.poolId);
+    const pool = getDb().prepare('SELECT tournament_id FROM pools WHERE id = ?').get(req.params.poolId);
     if (!pool) {
       return res.status(404).json({ error: 'Pool not found' });
     }
 
-    const events = db.prepare(`
+    const events = getDb().prepare(`
       SELECT e.*, s.name as sport_name, s.icon as sport_icon,
              CASE WHEN datetime(e.deadline) > datetime('now') THEN 1 ELSE 0 END as can_predict
       FROM events e
@@ -48,7 +48,7 @@ router.get('/pool/:poolId', authenticateToken, (req, res) => {
     `).all(req.params.poolId, pool.tournament_id);
 
     // Get user's predictions for these events
-    const predictions = db.prepare(`
+    const predictions = getDb().prepare(`
       SELECT event_id, first_place_id, second_place_id, third_place_id,
              predicted_time, world_record_prediction, points_earned
       FROM predictions
@@ -74,7 +74,7 @@ router.get('/pool/:poolId', authenticateToken, (req, res) => {
 // Get single event details
 router.get('/:id', optionalAuth, (req, res) => {
   try {
-    const event = db.prepare(`
+    const event = getDb().prepare(`
       SELECT e.*, s.name as sport_name, s.icon as sport_icon,
              t.name as tournament_name
       FROM events e
@@ -88,12 +88,12 @@ router.get('/:id', optionalAuth, (req, res) => {
     }
 
     // Get competitors for this event's sport
-    event.competitors = db.prepare(`
+    event.competitors = getDb().prepare(`
       SELECT * FROM competitors WHERE sport_id = ?
     `).all(event.sport_id);
 
     // Get results if available
-    event.results = db.prepare(`
+    event.results = getDb().prepare(`
       SELECT er.*, c.name as competitor_name, c.country, c.country_code
       FROM event_results er
       JOIN competitors c ON er.competitor_id = c.id
@@ -111,7 +111,7 @@ router.get('/:id', optionalAuth, (req, res) => {
 // Get competitors by sport
 router.get('/competitors/sport/:sportId', (req, res) => {
   try {
-    const competitors = db.prepare(`
+    const competitors = getDb().prepare(`
       SELECT * FROM competitors WHERE sport_id = ?
       ORDER BY name ASC
     `).all(req.params.sportId);
@@ -132,16 +132,16 @@ router.post('/:id/results', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Results array is required' });
     }
 
-    const event = db.prepare('SELECT * FROM events WHERE id = ?').get(req.params.id);
+    const event = getDb().prepare('SELECT * FROM events WHERE id = ?').get(req.params.id);
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
 
     // Clear existing results
-    db.prepare('DELETE FROM event_results WHERE event_id = ?').run(req.params.id);
+    getDb().prepare('DELETE FROM event_results WHERE event_id = ?').run(req.params.id);
 
     // Insert new results
-    const insertResult = db.prepare(`
+    const insertResult = getDb().prepare(`
       INSERT INTO event_results (event_id, competitor_id, position, time, is_world_record)
       VALUES (?, ?, ?, ?, ?)
     `);
@@ -159,7 +159,7 @@ router.post('/:id/results', authenticateToken, (req, res) => {
     });
 
     // Update event status
-    db.prepare(`
+    getDb().prepare(`
       UPDATE events SET status = 'completed', is_world_record_broken = ?
       WHERE id = ?
     `).run(worldRecordBroken ? 1 : 0, req.params.id);
@@ -176,7 +176,7 @@ router.post('/:id/results', authenticateToken, (req, res) => {
 
 // Function to calculate points for predictions
 function calculatePoints(eventId) {
-  const results = db.prepare(`
+  const results = getDb().prepare(`
     SELECT competitor_id, position, is_world_record
     FROM event_results
     WHERE event_id = ?
@@ -191,15 +191,15 @@ function calculatePoints(eventId) {
   const third = results.find(r => r.position === 3);
   const worldRecordBroken = results.some(r => r.is_world_record);
 
-  const predictions = db.prepare(`
+  const predictions = getDb().prepare(`
     SELECT * FROM predictions WHERE event_id = ?
   `).all(eventId);
 
-  const updatePrediction = db.prepare(`
+  const updatePrediction = getDb().prepare(`
     UPDATE predictions SET points_earned = ? WHERE id = ?
   `);
 
-  const updateUserStats = db.prepare(`
+  const updateUserStats = getDb().prepare(`
     UPDATE user_stats SET
       total_points = total_points + ?,
       correct_predictions = correct_predictions + ?,

@@ -1,5 +1,5 @@
 const express = require('express');
-const db = require('../config/database');
+const { getDb } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -22,14 +22,14 @@ router.post('/', authenticateToken, (req, res) => {
     }
 
     // Check if user is member of pool
-    const isMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const isMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(pool_id, req.user.id);
     if (!isMember) {
       return res.status(403).json({ error: 'You are not a member of this pool' });
     }
 
     // Check if event deadline hasn't passed
-    const event = db.prepare('SELECT * FROM events WHERE id = ?').get(event_id);
+    const event = getDb().prepare('SELECT * FROM events WHERE id = ?').get(event_id);
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
@@ -41,7 +41,7 @@ router.post('/', authenticateToken, (req, res) => {
     }
 
     // Check if this sport is in the pool
-    const sportInPool = db.prepare(`
+    const sportInPool = getDb().prepare(`
       SELECT 1 FROM pool_sports ps
       JOIN events e ON e.sport_id = ps.sport_id
       WHERE ps.pool_id = ? AND e.id = ?
@@ -52,13 +52,13 @@ router.post('/', authenticateToken, (req, res) => {
     }
 
     // Check for existing prediction
-    const existing = db.prepare(
+    const existing = getDb().prepare(
       'SELECT id FROM predictions WHERE user_id = ? AND pool_id = ? AND event_id = ?'
     ).get(req.user.id, pool_id, event_id);
 
     if (existing) {
       // Update existing prediction
-      db.prepare(`
+      getDb().prepare(`
         UPDATE predictions SET
           first_place_id = ?,
           second_place_id = ?,
@@ -79,7 +79,7 @@ router.post('/', authenticateToken, (req, res) => {
       res.json({ message: 'Prediction updated', prediction_id: existing.id });
     } else {
       // Create new prediction
-      const result = db.prepare(`
+      const result = getDb().prepare(`
         INSERT INTO predictions (
           user_id, pool_id, event_id, first_place_id, second_place_id, third_place_id,
           predicted_time, world_record_prediction
@@ -96,19 +96,19 @@ router.post('/', authenticateToken, (req, res) => {
       );
 
       // Update user stats
-      db.prepare('UPDATE user_stats SET total_predictions = total_predictions + 1 WHERE user_id = ?')
+      getDb().prepare('UPDATE user_stats SET total_predictions = total_predictions + 1 WHERE user_id = ?')
         .run(req.user.id);
 
       // Check if this is first prediction - award trophy
-      const stats = db.prepare('SELECT total_predictions FROM user_stats WHERE user_id = ?')
+      const stats = getDb().prepare('SELECT total_predictions FROM user_stats WHERE user_id = ?')
         .get(req.user.id);
       if (stats.total_predictions === 1) {
         // Award "First Blood" trophy
-        const trophyExists = db.prepare(
+        const trophyExists = getDb().prepare(
           'SELECT 1 FROM user_trophies WHERE user_id = ? AND trophy_id = 9'
         ).get(req.user.id);
         if (!trophyExists) {
-          db.prepare('INSERT INTO user_trophies (user_id, trophy_id) VALUES (?, 9)')
+          getDb().prepare('INSERT INTO user_trophies (user_id, trophy_id) VALUES (?, 9)')
             .run(req.user.id);
         }
       }
@@ -125,13 +125,13 @@ router.post('/', authenticateToken, (req, res) => {
 router.get('/pool/:poolId', authenticateToken, (req, res) => {
   try {
     // Check if user is member
-    const isMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const isMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(req.params.poolId, req.user.id);
     if (!isMember) {
       return res.status(403).json({ error: 'You are not a member of this pool' });
     }
 
-    const predictions = db.prepare(`
+    const predictions = getDb().prepare(`
       SELECT p.*,
              e.name as event_name, e.event_date, e.status as event_status,
              s.name as sport_name, s.icon as sport_icon,
@@ -161,13 +161,13 @@ router.get('/event/:eventId/pool/:poolId', authenticateToken, (req, res) => {
     const { eventId, poolId } = req.params;
 
     // Check if user is member
-    const isMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const isMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(poolId, req.user.id);
     if (!isMember) {
       return res.status(403).json({ error: 'You are not a member of this pool' });
     }
 
-    const event = db.prepare('SELECT * FROM events WHERE id = ?').get(eventId);
+    const event = getDb().prepare('SELECT * FROM events WHERE id = ?').get(eventId);
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
@@ -177,7 +177,7 @@ router.get('/event/:eventId/pool/:poolId', authenticateToken, (req, res) => {
 
     // Before deadline, only show user's own prediction
     if (now < deadline) {
-      const ownPrediction = db.prepare(`
+      const ownPrediction = getDb().prepare(`
         SELECT p.*,
                u.nickname, u.profile_image,
                c1.name as first_name, c2.name as second_name, c3.name as third_name
@@ -196,7 +196,7 @@ router.get('/event/:eventId/pool/:poolId', authenticateToken, (req, res) => {
     }
 
     // After deadline, show all predictions
-    const predictions = db.prepare(`
+    const predictions = getDb().prepare(`
       SELECT p.*,
              u.id as user_id, u.nickname, u.profile_image,
              c1.name as first_name, c1.country as first_country,
@@ -224,7 +224,7 @@ router.get('/event/:eventId/pool/:poolId', authenticateToken, (req, res) => {
 // Delete prediction (only before deadline)
 router.delete('/:id', authenticateToken, (req, res) => {
   try {
-    const prediction = db.prepare(`
+    const prediction = getDb().prepare(`
       SELECT p.*, e.deadline
       FROM predictions p
       JOIN events e ON p.event_id = e.id
@@ -241,7 +241,7 @@ router.delete('/:id', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Cannot delete prediction after deadline' });
     }
 
-    db.prepare('DELETE FROM predictions WHERE id = ?').run(req.params.id);
+    getDb().prepare('DELETE FROM predictions WHERE id = ?').run(req.params.id);
 
     res.json({ message: 'Prediction deleted' });
   } catch (error) {

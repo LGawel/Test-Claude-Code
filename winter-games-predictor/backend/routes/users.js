@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const db = require('../config/database');
+const { getDb } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -39,7 +39,7 @@ const upload = multer({
 // Get current user profile
 router.get('/me', authenticateToken, (req, res) => {
   try {
-    const user = db.prepare(`
+    const user = getDb().prepare(`
       SELECT u.id, u.email, u.nickname, u.profile_image, u.created_at,
              us.total_predictions, us.correct_predictions, us.total_points,
              us.pools_won, us.longest_streak, us.current_streak, us.perfect_predictions
@@ -53,7 +53,7 @@ router.get('/me', authenticateToken, (req, res) => {
     }
 
     // Get user's pools
-    const pools = db.prepare(`
+    const pools = getDb().prepare(`
       SELECT p.id, p.name, pm.joined_at
       FROM pools p
       JOIN pool_members pm ON p.id = pm.pool_id
@@ -61,7 +61,7 @@ router.get('/me', authenticateToken, (req, res) => {
     `).all(req.user.id);
 
     // Get user's trophies
-    const trophies = db.prepare(`
+    const trophies = getDb().prepare(`
       SELECT t.id, t.name, t.description, t.icon, ut.earned_at
       FROM trophies t
       JOIN user_trophies ut ON t.id = ut.trophy_id
@@ -87,16 +87,16 @@ router.put('/me', authenticateToken, (req, res) => {
 
     if (nickname) {
       // Check if nickname is taken by another user
-      const existing = db.prepare('SELECT id FROM users WHERE nickname = ? AND id != ?').get(nickname, req.user.id);
+      const existing = getDb().prepare('SELECT id FROM users WHERE nickname = ? AND id != ?').get(nickname, req.user.id);
       if (existing) {
         return res.status(400).json({ error: 'Nickname already taken' });
       }
 
-      db.prepare('UPDATE users SET nickname = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      getDb().prepare('UPDATE users SET nickname = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
         .run(nickname, req.user.id);
     }
 
-    const updatedUser = db.prepare('SELECT id, email, nickname, profile_image FROM users WHERE id = ?')
+    const updatedUser = getDb().prepare('SELECT id, email, nickname, profile_image FROM users WHERE id = ?')
       .get(req.user.id);
 
     res.json({ message: 'Profile updated', user: updatedUser });
@@ -116,7 +116,7 @@ router.post('/me/avatar', authenticateToken, upload.single('avatar'), (req, res)
     const imageUrl = `/uploads/profiles/${req.file.filename}`;
 
     // Delete old profile image if exists
-    const user = db.prepare('SELECT profile_image FROM users WHERE id = ?').get(req.user.id);
+    const user = getDb().prepare('SELECT profile_image FROM users WHERE id = ?').get(req.user.id);
     if (user.profile_image) {
       const oldPath = path.join(__dirname, '..', user.profile_image);
       if (fs.existsSync(oldPath)) {
@@ -124,7 +124,7 @@ router.post('/me/avatar', authenticateToken, upload.single('avatar'), (req, res)
       }
     }
 
-    db.prepare('UPDATE users SET profile_image = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+    getDb().prepare('UPDATE users SET profile_image = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
       .run(imageUrl, req.user.id);
 
     res.json({ message: 'Profile image updated', imageUrl });
@@ -137,7 +137,7 @@ router.post('/me/avatar', authenticateToken, upload.single('avatar'), (req, res)
 // Get user by ID (public profile)
 router.get('/:id', (req, res) => {
   try {
-    const user = db.prepare(`
+    const user = getDb().prepare(`
       SELECT u.id, u.nickname, u.profile_image, u.created_at,
              us.total_predictions, us.correct_predictions, us.total_points,
              us.pools_won, us.longest_streak, us.perfect_predictions
@@ -151,7 +151,7 @@ router.get('/:id', (req, res) => {
     }
 
     // Get user's trophies
-    const trophies = db.prepare(`
+    const trophies = getDb().prepare(`
       SELECT t.id, t.name, t.description, t.icon, ut.earned_at
       FROM trophies t
       JOIN user_trophies ut ON t.id = ut.trophy_id
@@ -169,7 +169,7 @@ router.get('/:id', (req, res) => {
 // Get user's prediction history
 router.get('/:id/history', (req, res) => {
   try {
-    const predictions = db.prepare(`
+    const predictions = getDb().prepare(`
       SELECT p.id, p.points_earned, p.created_at,
              e.name as event_name, e.event_date,
              s.name as sport_name,

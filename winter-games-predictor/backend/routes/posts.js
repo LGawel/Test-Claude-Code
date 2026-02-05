@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const db = require('../config/database');
+const { getDb } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -42,13 +42,13 @@ router.get('/pool/:poolId', authenticateToken, (req, res) => {
     const { limit = 20, offset = 0 } = req.query;
 
     // Check if user is member
-    const isMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const isMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(req.params.poolId, req.user.id);
     if (!isMember) {
       return res.status(403).json({ error: 'You are not a member of this pool' });
     }
 
-    const posts = db.prepare(`
+    const posts = getDb().prepare(`
       SELECT pp.*, u.nickname, u.profile_image,
              (SELECT COUNT(*) FROM post_comments WHERE post_id = pp.id) as comment_count
       FROM pool_posts pp
@@ -58,7 +58,7 @@ router.get('/pool/:poolId', authenticateToken, (req, res) => {
       LIMIT ? OFFSET ?
     `).all(req.params.poolId, parseInt(limit), parseInt(offset));
 
-    const totalPosts = db.prepare(
+    const totalPosts = getDb().prepare(
       'SELECT COUNT(*) as count FROM pool_posts WHERE pool_id = ?'
     ).get(req.params.poolId).count;
 
@@ -81,7 +81,7 @@ router.post('/pool/:poolId', authenticateToken, upload.single('image'), (req, re
     const poolId = req.params.poolId;
 
     // Check if user is member
-    const isMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const isMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(poolId, req.user.id);
     if (!isMember) {
       return res.status(403).json({ error: 'You are not a member of this pool' });
@@ -93,12 +93,12 @@ router.post('/pool/:poolId', authenticateToken, upload.single('image'), (req, re
 
     const imageUrl = req.file ? `/uploads/posts/${req.file.filename}` : null;
 
-    const result = db.prepare(`
+    const result = getDb().prepare(`
       INSERT INTO pool_posts (pool_id, user_id, content, image_url)
       VALUES (?, ?, ?, ?)
     `).run(poolId, req.user.id, content || null, imageUrl);
 
-    const newPost = db.prepare(`
+    const newPost = getDb().prepare(`
       SELECT pp.*, u.nickname, u.profile_image
       FROM pool_posts pp
       JOIN users u ON pp.user_id = u.id
@@ -118,14 +118,14 @@ router.post('/pool/:poolId', authenticateToken, upload.single('image'), (req, re
 // Delete post
 router.delete('/:id', authenticateToken, (req, res) => {
   try {
-    const post = db.prepare('SELECT * FROM pool_posts WHERE id = ?').get(req.params.id);
+    const post = getDb().prepare('SELECT * FROM pool_posts WHERE id = ?').get(req.params.id);
 
     if (!post) {
       return res.status(404).json({ error: 'Post not found' });
     }
 
     // Check if user is the author or pool creator
-    const pool = db.prepare('SELECT created_by FROM pools WHERE id = ?').get(post.pool_id);
+    const pool = getDb().prepare('SELECT created_by FROM pools WHERE id = ?').get(post.pool_id);
     if (post.user_id !== req.user.id && pool.created_by !== req.user.id) {
       return res.status(403).json({ error: 'You can only delete your own posts' });
     }
@@ -138,7 +138,7 @@ router.delete('/:id', authenticateToken, (req, res) => {
       }
     }
 
-    db.prepare('DELETE FROM pool_posts WHERE id = ?').run(req.params.id);
+    getDb().prepare('DELETE FROM pool_posts WHERE id = ?').run(req.params.id);
 
     res.json({ message: 'Post deleted' });
   } catch (error) {
@@ -150,19 +150,19 @@ router.delete('/:id', authenticateToken, (req, res) => {
 // Get comments for a post
 router.get('/:postId/comments', authenticateToken, (req, res) => {
   try {
-    const post = db.prepare('SELECT pool_id FROM pool_posts WHERE id = ?').get(req.params.postId);
+    const post = getDb().prepare('SELECT pool_id FROM pool_posts WHERE id = ?').get(req.params.postId);
     if (!post) {
       return res.status(404).json({ error: 'Post not found' });
     }
 
     // Check if user is member
-    const isMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const isMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(post.pool_id, req.user.id);
     if (!isMember) {
       return res.status(403).json({ error: 'You are not a member of this pool' });
     }
 
-    const comments = db.prepare(`
+    const comments = getDb().prepare(`
       SELECT pc.*, u.nickname, u.profile_image
       FROM post_comments pc
       JOIN users u ON pc.user_id = u.id
@@ -186,24 +186,24 @@ router.post('/:postId/comments', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Comment content is required' });
     }
 
-    const post = db.prepare('SELECT pool_id FROM pool_posts WHERE id = ?').get(req.params.postId);
+    const post = getDb().prepare('SELECT pool_id FROM pool_posts WHERE id = ?').get(req.params.postId);
     if (!post) {
       return res.status(404).json({ error: 'Post not found' });
     }
 
     // Check if user is member
-    const isMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const isMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(post.pool_id, req.user.id);
     if (!isMember) {
       return res.status(403).json({ error: 'You are not a member of this pool' });
     }
 
-    const result = db.prepare(`
+    const result = getDb().prepare(`
       INSERT INTO post_comments (post_id, user_id, content)
       VALUES (?, ?, ?)
     `).run(req.params.postId, req.user.id, content.trim());
 
-    const newComment = db.prepare(`
+    const newComment = getDb().prepare(`
       SELECT pc.*, u.nickname, u.profile_image
       FROM post_comments pc
       JOIN users u ON pc.user_id = u.id
@@ -223,7 +223,7 @@ router.post('/:postId/comments', authenticateToken, (req, res) => {
 // Delete comment
 router.delete('/comments/:id', authenticateToken, (req, res) => {
   try {
-    const comment = db.prepare(`
+    const comment = getDb().prepare(`
       SELECT pc.*, pp.pool_id
       FROM post_comments pc
       JOIN pool_posts pp ON pc.post_id = pp.id
@@ -235,12 +235,12 @@ router.delete('/comments/:id', authenticateToken, (req, res) => {
     }
 
     // Check if user is the author or pool creator
-    const pool = db.prepare('SELECT created_by FROM pools WHERE id = ?').get(comment.pool_id);
+    const pool = getDb().prepare('SELECT created_by FROM pools WHERE id = ?').get(comment.pool_id);
     if (comment.user_id !== req.user.id && pool.created_by !== req.user.id) {
       return res.status(403).json({ error: 'You can only delete your own comments' });
     }
 
-    db.prepare('DELETE FROM post_comments WHERE id = ?').run(req.params.id);
+    getDb().prepare('DELETE FROM post_comments WHERE id = ?').run(req.params.id);
 
     res.json({ message: 'Comment deleted' });
   } catch (error) {

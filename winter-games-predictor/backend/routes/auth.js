@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../config/database');
+const { getDb } = require('../config/database');
 const { JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
@@ -16,13 +16,13 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if email already exists
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    const existingUser = getDb().prepare('SELECT id FROM users WHERE email = ?').get(email);
     if (existingUser) {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
     // Check if nickname already exists
-    const existingNickname = db.prepare('SELECT id FROM users WHERE nickname = ?').get(nickname);
+    const existingNickname = getDb().prepare('SELECT id FROM users WHERE nickname = ?').get(nickname);
     if (existingNickname) {
       return res.status(400).json({ error: 'Nickname already taken' });
     }
@@ -31,12 +31,12 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert user
-    const result = db.prepare(
+    const result = getDb().prepare(
       'INSERT INTO users (email, password, nickname) VALUES (?, ?, ?)'
     ).run(email, hashedPassword, nickname);
 
     // Create user stats entry
-    db.prepare('INSERT INTO user_stats (user_id) VALUES (?)').run(result.lastInsertRowid);
+    getDb().prepare('INSERT INTO user_stats (user_id) VALUES (?)').run(result.lastInsertRowid);
 
     // Generate token
     const token = jwt.sign(
@@ -70,7 +70,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Find user
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const user = getDb().prepare('SELECT * FROM users WHERE email = ?').get(email);
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
@@ -119,7 +119,7 @@ router.get('/verify', (req, res) => {
     }
 
     // Get fresh user data
-    const userData = db.prepare('SELECT id, email, nickname, profile_image FROM users WHERE id = ?').get(user.id);
+    const userData = getDb().prepare('SELECT id, email, nickname, profile_image FROM users WHERE id = ?').get(user.id);
     if (!userData) {
       return res.status(404).json({ valid: false });
     }

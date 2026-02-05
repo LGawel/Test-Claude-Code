@@ -1,5 +1,5 @@
 const express = require('express');
-const db = require('../config/database');
+const { getDb } = require('../config/database');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -7,7 +7,7 @@ const router = express.Router();
 // Get all available trophies
 router.get('/', optionalAuth, (req, res) => {
   try {
-    const trophies = db.prepare('SELECT * FROM trophies ORDER BY id').all();
+    const trophies = getDb().prepare('SELECT * FROM trophies ORDER BY id').all();
     res.json(trophies);
   } catch (error) {
     console.error('Get trophies error:', error);
@@ -18,7 +18,7 @@ router.get('/', optionalAuth, (req, res) => {
 // Get user's trophies (bekerkast)
 router.get('/user/:userId', optionalAuth, (req, res) => {
   try {
-    const trophies = db.prepare(`
+    const trophies = getDb().prepare(`
       SELECT t.*, ut.earned_at, ut.pool_id, ut.tournament_id,
              p.name as pool_name,
              trn.name as tournament_name
@@ -38,7 +38,7 @@ router.get('/user/:userId', optionalAuth, (req, res) => {
     };
 
     // Get trophy counts by type
-    const counts = db.prepare(`
+    const counts = getDb().prepare(`
       SELECT t.type, COUNT(*) as count
       FROM user_trophies ut
       JOIN trophies t ON ut.trophy_id = t.id
@@ -60,14 +60,14 @@ router.get('/user/:userId', optionalAuth, (req, res) => {
 // Get trophy details
 router.get('/:id', optionalAuth, (req, res) => {
   try {
-    const trophy = db.prepare('SELECT * FROM trophies WHERE id = ?').get(req.params.id);
+    const trophy = getDb().prepare('SELECT * FROM trophies WHERE id = ?').get(req.params.id);
 
     if (!trophy) {
       return res.status(404).json({ error: 'Trophy not found' });
     }
 
     // Get users who have this trophy
-    const holders = db.prepare(`
+    const holders = getDb().prepare(`
       SELECT u.id, u.nickname, u.profile_image, ut.earned_at
       FROM users u
       JOIN user_trophies ut ON u.id = ut.user_id
@@ -76,7 +76,7 @@ router.get('/:id', optionalAuth, (req, res) => {
       LIMIT 50
     `).all(req.params.id);
 
-    const totalHolders = db.prepare(
+    const totalHolders = getDb().prepare(
       'SELECT COUNT(*) as count FROM user_trophies WHERE trophy_id = ?'
     ).get(req.params.id).count;
 
@@ -101,14 +101,14 @@ router.post('/award', authenticateToken, (req, res) => {
     }
 
     // Check if user already has this trophy (for unique trophies)
-    const trophy = db.prepare('SELECT * FROM trophies WHERE id = ?').get(trophy_id);
+    const trophy = getDb().prepare('SELECT * FROM trophies WHERE id = ?').get(trophy_id);
     if (!trophy) {
       return res.status(404).json({ error: 'Trophy not found' });
     }
 
     // For pool-specific trophies, check if already awarded for this pool
     if (pool_id) {
-      const existing = db.prepare(
+      const existing = getDb().prepare(
         'SELECT 1 FROM user_trophies WHERE user_id = ? AND trophy_id = ? AND pool_id = ?'
       ).get(user_id, trophy_id, pool_id);
       if (existing) {
@@ -117,13 +117,13 @@ router.post('/award', authenticateToken, (req, res) => {
     }
 
     // Award trophy
-    db.prepare(`
+    getDb().prepare(`
       INSERT INTO user_trophies (user_id, trophy_id, pool_id, tournament_id)
       VALUES (?, ?, ?, ?)
     `).run(user_id, trophy_id, pool_id || null, tournament_id || null);
 
     // Create notification
-    db.prepare(`
+    getDb().prepare(`
       INSERT INTO notifications (user_id, type, title, message, related_id)
       VALUES (?, 'trophy', ?, ?, ?)
     `).run(
@@ -150,7 +150,7 @@ router.post('/check/:userId', authenticateToken, (req, res) => {
       return res.status(403).json({ error: 'Can only check your own trophies' });
     }
 
-    const stats = db.prepare('SELECT * FROM user_stats WHERE user_id = ?').get(userId);
+    const stats = getDb().prepare('SELECT * FROM user_stats WHERE user_id = ?').get(userId);
     if (!stats) {
       return res.status(404).json({ error: 'User stats not found' });
     }
@@ -159,46 +159,46 @@ router.post('/check/:userId', authenticateToken, (req, res) => {
 
     // Check streak trophies
     if (stats.longest_streak >= 5) {
-      const hasStreakTrophy = db.prepare(
+      const hasStreakTrophy = getDb().prepare(
         'SELECT 1 FROM user_trophies WHERE user_id = ? AND trophy_id = 4'
       ).get(userId);
       if (!hasStreakTrophy) {
-        db.prepare('INSERT INTO user_trophies (user_id, trophy_id) VALUES (?, 4)').run(userId);
+        getDb().prepare('INSERT INTO user_trophies (user_id, trophy_id) VALUES (?, 4)').run(userId);
         awardedTrophies.push('Op Dreef (5 streak)');
       }
     }
 
     if (stats.longest_streak >= 10) {
-      const hasStreakTrophy = db.prepare(
+      const hasStreakTrophy = getDb().prepare(
         'SELECT 1 FROM user_trophies WHERE user_id = ? AND trophy_id = 5'
       ).get(userId);
       if (!hasStreakTrophy) {
-        db.prepare('INSERT INTO user_trophies (user_id, trophy_id) VALUES (?, 5)').run(userId);
+        getDb().prepare('INSERT INTO user_trophies (user_id, trophy_id) VALUES (?, 5)').run(userId);
         awardedTrophies.push('Onstopbaar (10 streak)');
       }
     }
 
     // Check perfect prediction trophy
     if (stats.perfect_predictions >= 1) {
-      const hasPerfectTrophy = db.prepare(
+      const hasPerfectTrophy = getDb().prepare(
         'SELECT 1 FROM user_trophies WHERE user_id = ? AND trophy_id = 2'
       ).get(userId);
       if (!hasPerfectTrophy) {
-        db.prepare('INSERT INTO user_trophies (user_id, trophy_id) VALUES (?, 2)').run(userId);
+        getDb().prepare('INSERT INTO user_trophies (user_id, trophy_id) VALUES (?, 2)').run(userId);
         awardedTrophies.push('Perfecte Voorspelling');
       }
     }
 
     // Check veteran trophy (10+ pools)
-    const poolCount = db.prepare(
+    const poolCount = getDb().prepare(
       'SELECT COUNT(*) as count FROM pool_members WHERE user_id = ?'
     ).get(userId).count;
     if (poolCount >= 10) {
-      const hasVeteranTrophy = db.prepare(
+      const hasVeteranTrophy = getDb().prepare(
         'SELECT 1 FROM user_trophies WHERE user_id = ? AND trophy_id = 10'
       ).get(userId);
       if (!hasVeteranTrophy) {
-        db.prepare('INSERT INTO user_trophies (user_id, trophy_id) VALUES (?, 10)').run(userId);
+        getDb().prepare('INSERT INTO user_trophies (user_id, trophy_id) VALUES (?, 10)').run(userId);
         awardedTrophies.push('Veteraan');
       }
     }

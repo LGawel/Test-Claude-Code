@@ -1,6 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const db = require('../config/database');
+const { getDb } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -8,7 +8,7 @@ const router = express.Router();
 // Get all pools for current user
 router.get('/my-pools', authenticateToken, (req, res) => {
   try {
-    const pools = db.prepare(`
+    const pools = getDb().prepare(`
       SELECT p.*,
              u.nickname as creator_name,
              t.name as tournament_name,
@@ -23,7 +23,7 @@ router.get('/my-pools', authenticateToken, (req, res) => {
 
     // Get sports for each pool
     pools.forEach(pool => {
-      pool.sports = db.prepare(`
+      pool.sports = getDb().prepare(`
         SELECT s.id, s.name, s.icon
         FROM sports s
         JOIN pool_sports ps ON s.id = ps.sport_id
@@ -41,7 +41,7 @@ router.get('/my-pools', authenticateToken, (req, res) => {
 // Get pool by ID
 router.get('/:id', authenticateToken, (req, res) => {
   try {
-    const pool = db.prepare(`
+    const pool = getDb().prepare(`
       SELECT p.*,
              u.nickname as creator_name,
              t.name as tournament_name, t.start_date, t.end_date, t.location
@@ -56,7 +56,7 @@ router.get('/:id', authenticateToken, (req, res) => {
     }
 
     // Check if user is member
-    const isMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const isMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(req.params.id, req.user.id);
 
     if (!isMember) {
@@ -64,7 +64,7 @@ router.get('/:id', authenticateToken, (req, res) => {
     }
 
     // Get members
-    pool.members = db.prepare(`
+    pool.members = getDb().prepare(`
       SELECT u.id, u.nickname, u.profile_image, pm.has_paid, pm.joined_at
       FROM users u
       JOIN pool_members pm ON u.id = pm.user_id
@@ -73,7 +73,7 @@ router.get('/:id', authenticateToken, (req, res) => {
     `).all(req.params.id);
 
     // Get sports
-    pool.sports = db.prepare(`
+    pool.sports = getDb().prepare(`
       SELECT s.id, s.name, s.icon
       FROM sports s
       JOIN pool_sports ps ON s.id = ps.sport_id
@@ -81,7 +81,7 @@ router.get('/:id', authenticateToken, (req, res) => {
     `).all(req.params.id);
 
     // Get upcoming events for this pool's sports
-    pool.upcoming_events = db.prepare(`
+    pool.upcoming_events = getDb().prepare(`
       SELECT e.*, s.name as sport_name, s.icon as sport_icon
       FROM events e
       JOIN sports s ON e.sport_id = s.id
@@ -115,7 +115,7 @@ router.post('/', authenticateToken, (req, res) => {
     const inviteCode = uuidv4().substring(0, 8).toUpperCase();
 
     // Create pool
-    const result = db.prepare(`
+    const result = getDb().prepare(`
       INSERT INTO pools (name, description, invite_code, tournament_id, created_by, entry_fee, prize_pool)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(name, description || '', inviteCode, tournament_id, req.user.id, entry_fee || 0, entry_fee || 0);
@@ -123,13 +123,13 @@ router.post('/', authenticateToken, (req, res) => {
     const poolId = result.lastInsertRowid;
 
     // Add sports to pool
-    const addSport = db.prepare('INSERT INTO pool_sports (pool_id, sport_id) VALUES (?, ?)');
+    const addSport = getDb().prepare('INSERT INTO pool_sports (pool_id, sport_id) VALUES (?, ?)');
     sport_ids.forEach(sportId => {
       addSport.run(poolId, sportId);
     });
 
     // Add creator as member
-    db.prepare('INSERT INTO pool_members (pool_id, user_id, has_paid) VALUES (?, ?, 1)')
+    getDb().prepare('INSERT INTO pool_members (pool_id, user_id, has_paid) VALUES (?, ?, 1)')
       .run(poolId, req.user.id);
 
     res.status(201).json({
@@ -153,32 +153,32 @@ router.post('/join/:inviteCode', authenticateToken, (req, res) => {
     const { inviteCode } = req.params;
 
     // Find pool
-    const pool = db.prepare('SELECT * FROM pools WHERE invite_code = ?').get(inviteCode.toUpperCase());
+    const pool = getDb().prepare('SELECT * FROM pools WHERE invite_code = ?').get(inviteCode.toUpperCase());
     if (!pool) {
       return res.status(404).json({ error: 'Invalid invite code' });
     }
 
     // Check if already member
-    const existingMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const existingMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(pool.id, req.user.id);
     if (existingMember) {
       return res.status(400).json({ error: 'You are already a member of this pool' });
     }
 
     // Check member limit
-    const memberCount = db.prepare('SELECT COUNT(*) as count FROM pool_members WHERE pool_id = ?')
+    const memberCount = getDb().prepare('SELECT COUNT(*) as count FROM pool_members WHERE pool_id = ?')
       .get(pool.id).count;
     if (memberCount >= pool.max_members) {
       return res.status(400).json({ error: 'This pool is full' });
     }
 
     // Add member
-    db.prepare('INSERT INTO pool_members (pool_id, user_id) VALUES (?, ?)')
+    getDb().prepare('INSERT INTO pool_members (pool_id, user_id) VALUES (?, ?)')
       .run(pool.id, req.user.id);
 
     // Update prize pool
     if (pool.entry_fee > 0) {
-      db.prepare('UPDATE pools SET prize_pool = prize_pool + ? WHERE id = ?')
+      getDb().prepare('UPDATE pools SET prize_pool = prize_pool + ? WHERE id = ?')
         .run(pool.entry_fee, pool.id);
     }
 
@@ -198,7 +198,7 @@ router.post('/join/:inviteCode', authenticateToken, (req, res) => {
 // Get pool info by invite code (for preview before joining)
 router.get('/invite/:inviteCode', authenticateToken, (req, res) => {
   try {
-    const pool = db.prepare(`
+    const pool = getDb().prepare(`
       SELECT p.id, p.name, p.description, p.entry_fee, p.max_members,
              t.name as tournament_name,
              u.nickname as creator_name,
@@ -214,7 +214,7 @@ router.get('/invite/:inviteCode', authenticateToken, (req, res) => {
     }
 
     // Get sports
-    pool.sports = db.prepare(`
+    pool.sports = getDb().prepare(`
       SELECT s.name, s.icon
       FROM sports s
       JOIN pool_sports ps ON s.id = ps.sport_id
@@ -222,7 +222,7 @@ router.get('/invite/:inviteCode', authenticateToken, (req, res) => {
     `).all(pool.id);
 
     // Check if user is already member
-    const isMember = db.prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    const isMember = getDb().prepare('SELECT * FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .get(pool.id, req.user.id);
     pool.is_member = !!isMember;
 
@@ -240,12 +240,12 @@ router.put('/:id/payment/:userId', authenticateToken, (req, res) => {
     const { has_paid } = req.body;
 
     // Check if user is pool creator
-    const pool = db.prepare('SELECT created_by FROM pools WHERE id = ?').get(id);
+    const pool = getDb().prepare('SELECT created_by FROM pools WHERE id = ?').get(id);
     if (!pool || pool.created_by !== req.user.id) {
       return res.status(403).json({ error: 'Only the pool creator can update payment status' });
     }
 
-    db.prepare('UPDATE pool_members SET has_paid = ? WHERE pool_id = ? AND user_id = ?')
+    getDb().prepare('UPDATE pool_members SET has_paid = ? WHERE pool_id = ? AND user_id = ?')
       .run(has_paid ? 1 : 0, id, userId);
 
     res.json({ message: 'Payment status updated' });
@@ -258,7 +258,7 @@ router.put('/:id/payment/:userId', authenticateToken, (req, res) => {
 // Leave pool
 router.delete('/:id/leave', authenticateToken, (req, res) => {
   try {
-    const pool = db.prepare('SELECT * FROM pools WHERE id = ?').get(req.params.id);
+    const pool = getDb().prepare('SELECT * FROM pools WHERE id = ?').get(req.params.id);
     if (!pool) {
       return res.status(404).json({ error: 'Pool not found' });
     }
@@ -268,7 +268,7 @@ router.delete('/:id/leave', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Pool creator cannot leave. Transfer ownership or delete the pool.' });
     }
 
-    db.prepare('DELETE FROM pool_members WHERE pool_id = ? AND user_id = ?')
+    getDb().prepare('DELETE FROM pool_members WHERE pool_id = ? AND user_id = ?')
       .run(req.params.id, req.user.id);
 
     res.json({ message: 'Successfully left pool' });
@@ -281,7 +281,7 @@ router.delete('/:id/leave', authenticateToken, (req, res) => {
 // Get all sports
 router.get('/sports/all', (req, res) => {
   try {
-    const sports = db.prepare('SELECT * FROM sports').all();
+    const sports = getDb().prepare('SELECT * FROM sports').all();
     res.json(sports);
   } catch (error) {
     console.error('Get sports error:', error);
@@ -292,7 +292,7 @@ router.get('/sports/all', (req, res) => {
 // Get all tournaments
 router.get('/tournaments/all', (req, res) => {
   try {
-    const tournaments = db.prepare('SELECT * FROM tournaments WHERE is_active = 1').all();
+    const tournaments = getDb().prepare('SELECT * FROM tournaments WHERE is_active = 1').all();
     res.json(tournaments);
   } catch (error) {
     console.error('Get tournaments error:', error);
