@@ -8,60 +8,49 @@
 </head>
 <body>
     <div class="container">
-        <!-- Header met quiz titel -->
+
+        <!-- Header -->
         <header class="quiz-header">
             <h1>🎵 Muziekquiz Leaderboard 🎵</h1>
             <div class="round-indicator">
-                <span>Ronde: </span>
-                <span id="current-round">1</span>
-                <span> / </span>
-                <span id="total-rounds">5</span>
+                Ronde <span id="current-round">1</span> / <span id="total-rounds">5</span>
             </div>
         </header>
 
-        <!-- De race track / route -->
-        <div class="race-container">
-            <div class="track">
-                <!-- Start lijn -->
-                <div class="start-line">
-                    <span>START</span>
-                </div>
+        <!-- Race track met rijbanen -->
+        <div class="race-section">
 
-                <!-- De weg zelf -->
-                <div class="road" id="road">
-                    <!-- Team markers worden hier dynamisch toegevoegd -->
-                </div>
-
-                <!-- Finish lijn -->
-                <div class="finish-line">
-                    <span>FINISH</span>
-                    <div class="checkered-flag"></div>
-                </div>
+            <!-- Start kolom -->
+            <div class="start-col">
+                <span>START</span>
             </div>
-        </div>
 
-        <!-- Scorebord -->
-        <div class="scoreboard" id="scoreboard">
-            <!-- Scores worden hier dynamisch toegevoegd -->
-        </div>
-
-        <!-- Confetti container voor de finish -->
-        <div class="confetti-container" id="confetti-container"></div>
-
-        <!-- Winner overlay -->
-        <div class="winner-overlay" id="winner-overlay">
-            <div class="winner-content">
-                <h2>🏆 WINNAAR! 🏆</h2>
-                <div class="winner-team" id="winner-team"></div>
-                <div class="winner-score" id="winner-score"></div>
+            <!-- Rijbanen (dynamisch gevuld via JS) -->
+            <div class="lanes-container" id="lanes-container">
+                <div class="waiting-text">Wachten op teams...</div>
             </div>
+
+            <!-- Finish kolom -->
+            <div class="finish-col">
+                <span>FINISH</span>
+                <div class="checkered-flag"></div>
+            </div>
+
         </div>
+
     </div>
 
-    <!-- Audio elements -->
-    <audio id="sound-points" preload="auto"></audio>
-    <audio id="sound-overtake" preload="auto"></audio>
-    <audio id="sound-winner" preload="auto"></audio>
+    <!-- Confetti + vuurwerk container -->
+    <div class="confetti-container" id="confetti-container"></div>
+
+    <!-- Winner overlay -->
+    <div class="winner-overlay" id="winner-overlay">
+        <div class="winner-content">
+            <h2>🏆 WINNAAR! 🏆</h2>
+            <div class="winner-team" id="winner-team"></div>
+            <div class="winner-score" id="winner-score"></div>
+        </div>
+    </div>
 
     <script src="js/shared.js"></script>
     <script src="js/leaderboard.js"></script>

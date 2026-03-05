@@ -1,455 +1,306 @@
 /**
- * Leaderboard Display for Music Quiz
+ * Leaderboard Display – rijbanen stijl (paardenrace)
  */
 
-// Track previous positions for overtake detection
-let previousPositions = {};
 let previousScores = {};
+let previousRanks  = {};
 
 document.addEventListener('DOMContentLoaded', () => {
-    initLeaderboard();
+    updateRoundDisplay();
+    renderLanes();
+    checkWinner();
     startListening();
 });
 
-/**
- * Initialize the leaderboard
- */
-function initLeaderboard() {
-    updateRoundDisplay();
-    renderTeams();
-    renderScoreboard();
-    checkWinner();
-}
-
-/**
- * Start listening for localStorage changes
- */
+/* ─── Luisteren naar admin-wijzigingen ─────────────────── */
 function startListening() {
-    // Listen for changes from admin panel
     window.addEventListener('storage', (event) => {
-        if (event.key === STORAGE_KEYS.TEAMS) {
-            handleTeamsUpdate();
-        } else if (event.key === STORAGE_KEYS.CURRENT_ROUND) {
-            updateRoundDisplay();
-        } else if (event.key === STORAGE_KEYS.SHOW_WINNER) {
-            checkWinner();
-        } else if (event.key === STORAGE_KEYS.SETTINGS) {
-            updateRoundDisplay();
-        }
+        if (event.key === STORAGE_KEYS.TEAMS)        { handleUpdate(); }
+        else if (event.key === STORAGE_KEYS.CURRENT_ROUND) { updateRoundDisplay(); }
+        else if (event.key === STORAGE_KEYS.SHOW_WINNER)   { checkWinner(); }
+        else if (event.key === STORAGE_KEYS.SETTINGS)      { updateRoundDisplay(); }
     });
 
-    // Also poll for changes (backup for same-tab updates)
+    // Polling als backup (zelfde tabblad)
     setInterval(() => {
-        handleTeamsUpdate();
+        handleUpdate();
         updateRoundDisplay();
         checkWinner();
-    }, 1000);
+    }, 800);
 }
 
-/**
- * Handle teams data update
- */
-function handleTeamsUpdate() {
+function handleUpdate() {
     const teams = getTeams();
-    const currentPositions = {};
-    const currentScores = {};
-
-    // Calculate current positions and scores
     const sortedTeams = getTeamsSortedByScore();
-    sortedTeams.forEach((team, index) => {
-        currentPositions[team.id] = index;
+
+    // Bereken huidige ranks en scores
+    const currentRanks  = {};
+    const currentScores = {};
+    sortedTeams.forEach((team, idx) => {
+        currentRanks[team.id]  = idx + 1;
         currentScores[team.id] = calculateTotalScore(team);
     });
 
-    // Detect changes and trigger animations
+    // Detecteer wijzigingen per team
     teams.forEach(team => {
-        const prevPos = previousPositions[team.id];
-        const currPos = currentPositions[team.id];
-        const prevScore = previousScores[team.id] || 0;
-        const currScore = currentScores[team.id];
+        const prevScore = previousScores[team.id] ?? null;
+        const currScore = currentScores[team.id] ?? 0;
+        const prevRank  = previousRanks[team.id]  ?? null;
+        const currRank  = currentRanks[team.id]  ?? 0;
 
-        // Points gained
-        if (currScore > prevScore) {
-            const pointsGained = currScore - prevScore;
-            triggerPointsAnimation(team.id, pointsGained);
+        if (prevScore !== null && currScore > prevScore) {
+            triggerScoreAnim(team.id, currScore - prevScore);
             playSound('points');
         }
-
-        // Position changed (overtake)
-        if (prevPos !== undefined && currPos < prevPos) {
-            triggerOvertakeAnimation(team.id);
+        if (prevRank !== null && currRank < prevRank) {
+            triggerOvertakeAnim(team.id);
             playSound('overtake');
         }
     });
 
-    // Update tracking
-    previousPositions = currentPositions;
     previousScores = currentScores;
+    previousRanks  = currentRanks;
 
-    // Re-render
-    renderTeams();
-    renderScoreboard();
+    renderLanes();
 }
 
-/**
- * Update round display
- */
+/* ─── Ronde weergave ───────────────────────────────────── */
 function updateRoundDisplay() {
     const settings = getSettings();
-    const currentRound = getCurrentRound();
-
-    document.getElementById('current-round').textContent = currentRound;
-    document.getElementById('total-rounds').textContent = settings.totalRounds;
+    document.getElementById('current-round').textContent = getCurrentRound();
+    document.getElementById('total-rounds').textContent  = settings.totalRounds;
 }
 
-/**
- * Render teams on the road
- */
-function renderTeams() {
-    const road = document.getElementById('road');
-    const teams = getTeams();
+/* ─── Rijbanen renderen ────────────────────────────────── */
+function renderLanes() {
+    const container   = document.getElementById('lanes-container');
+    const teams       = getTeams();
     const sortedTeams = getTeamsSortedByScore();
-    const maxPossibleScore = getMaxPossibleScore();
+    const maxScore    = getMaxPossibleScore();
 
-    // Get or create team markers
-    teams.forEach((team, index) => {
-        let marker = road.querySelector(`[data-team-id="${team.id}"]`);
-
-        if (!marker) {
-            marker = createTeamMarker(team);
-            road.appendChild(marker);
-        } else {
-            // Update existing marker image if changed
-            updateTeamMarker(marker, team);
-        }
-
-        // Calculate position on road (5% to 85% to keep markers in view)
-        const totalScore = calculateTotalScore(team);
-        const progressPercent = maxPossibleScore > 0
-            ? Math.min(5 + (totalScore / maxPossibleScore) * 80, 85)
-            : 5;
-
-        // Calculate vertical position based on ranking to avoid overlap
-        const position = sortedTeams.findIndex(t => t.id === team.id);
-        const numTeams = Math.max(teams.length, 1);
-        const availableHeight = road.offsetHeight - 100; // Leave padding
-        const laneHeight = availableHeight / numTeams;
-        const topPosition = 20 + (position * laneHeight) + (laneHeight / 2) - 50;
-
-        // Apply position with animation
-        marker.style.left = `${progressPercent}%`;
-        marker.style.top = `${Math.max(10, topPosition)}px`;
-    });
-
-    // Remove markers for deleted teams
-    road.querySelectorAll('.team-marker').forEach(marker => {
-        const teamId = marker.dataset.teamId;
-        if (!teams.find(t => t.id === teamId)) {
-            marker.remove();
-        }
-    });
-}
-
-/**
- * Create a team marker element
- */
-function createTeamMarker(team) {
-    const marker = document.createElement('div');
-    marker.className = 'team-marker';
-    marker.dataset.teamId = team.id;
-
-    const color = team.color || '#667eea';
-    const avatarContent = team.image
-        ? `<img src="${team.image}" alt="${escapeHtml(team.name)}">`
-        : `<span class="emoji-fallback">${getTeamAvatarEmoji(team)}</span>`;
-
-    marker.innerHTML = `
-        <div class="team-avatar" style="border-color: ${color}; box-shadow: 0 4px 20px ${color}60;">
-            ${avatarContent}
-        </div>
-        <div class="team-marker-name" style="background: ${color};">${escapeHtml(team.name)}</div>
-    `;
-
-    return marker;
-}
-
-/**
- * Update existing team marker
- */
-function updateTeamMarker(marker, team) {
-    const avatarDiv = marker.querySelector('.team-avatar');
-    const nameDiv = marker.querySelector('.team-marker-name');
-    const color = team.color || '#667eea';
-
-    // Update image if team has one
-    if (team.image) {
-        const existingImg = avatarDiv.querySelector('img');
-        if (!existingImg || existingImg.src !== team.image) {
-            avatarDiv.innerHTML = `<img src="${team.image}" alt="${escapeHtml(team.name)}">`;
-        }
-    }
-
-    // Update colors
-    avatarDiv.style.borderColor = color;
-    avatarDiv.style.boxShadow = `0 4px 20px ${color}60`;
-    nameDiv.style.background = color;
-}
-
-/**
- * Render the scoreboard
- */
-function renderScoreboard() {
-    const scoreboard = document.getElementById('scoreboard');
-    const sortedTeams = getTeamsSortedByScore();
-
-    if (sortedTeams.length === 0) {
-        scoreboard.innerHTML = '<p style="color: rgba(255,255,255,0.5); text-align: center;">Wachten op teams...</p>';
+    if (teams.length === 0) {
+        container.innerHTML = '<div class="waiting-text">Wachten op teams...</div>';
         return;
     }
 
-    scoreboard.innerHTML = sortedTeams.map((team, index) => {
-        const totalScore = calculateTotalScore(team);
-        const positionClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
-        const positionEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-        const isLeader = index === 0;
+    // Maak rijbanen aan als ze nog niet bestaan
+    teams.forEach((team) => {
+        let lane = container.querySelector(`.lane[data-team-id="${team.id}"]`);
+        if (!lane) {
+            lane = createLane(team);
+            container.appendChild(lane);
+        }
+        updateLane(lane, team, sortedTeams, maxScore);
+    });
 
-        return `
-            <div class="score-card ${isLeader ? 'leader' : ''}" data-team-id="${team.id}">
-                <div class="position ${positionClass}">${positionEmoji}</div>
-                <div class="team-name">${escapeHtml(team.name)}</div>
-                <div class="score">${totalScore} <span>pts</span></div>
-            </div>
-        `;
-    }).join('');
+    // Verwijder rijbanen van teams die weg zijn
+    container.querySelectorAll('.lane').forEach(lane => {
+        if (!teams.find(t => t.id === lane.dataset.teamId)) {
+            lane.remove();
+        }
+    });
 }
 
-/**
- * Trigger points animation
- */
-function triggerPointsAnimation(teamId, points) {
-    const marker = document.querySelector(`.team-marker[data-team-id="${teamId}"]`);
-    if (!marker) return;
+function createLane(team) {
+    const lane = document.createElement('div');
+    lane.className = 'lane';
+    lane.dataset.teamId = team.id;
 
-    // Add bounce animation to marker
-    marker.classList.add('scoring');
-    setTimeout(() => marker.classList.remove('scoring'), 600);
+    const color = team.color || '#667eea';
+    const photoHtml = team.image
+        ? `<img class="racer-photo" src="${team.image}" alt="${escapeHtml(team.name)}">`
+        : `<div class="racer-photo-placeholder">🏎️</div>`;
 
-    // Create floating points popup
+    lane.innerHTML = `
+        <div class="racer" data-racer="${team.id}">
+            <div class="racer-img-wrap">
+                ${photoHtml}
+                <span class="racer-score-badge" style="background:${color};">0 pts</span>
+            </div>
+            <div class="racer-name" style="border: 2px solid ${color};">${escapeHtml(team.name)}</div>
+        </div>
+    `;
+
+    return lane;
+}
+
+function updateLane(lane, team, sortedTeams, maxScore) {
+    const color   = team.color || '#667eea';
+    const score   = calculateTotalScore(team);
+    const rank    = sortedTeams.findIndex(t => t.id === team.id) + 1;
+    const racer   = lane.querySelector('.racer');
+    const badge   = lane.querySelector('.racer-score-badge');
+    const nameDiv = lane.querySelector('.racer-name');
+
+    // Positie op de baan: 5% = start, 90% = vlak voor finish
+    const pct = maxScore > 0 ? 5 + (score / maxScore) * 85 : 5;
+    racer.style.left = `${Math.min(pct, 90)}%`;
+
+    // Score badge
+    badge.textContent = `${score} pts`;
+
+    // Kleur badge groen als leider, anders teamkleur
+    badge.style.background = rank === 1 ? '#ffd700' : color;
+    badge.style.color       = rank === 1 ? '#000' : '#fff';
+
+    // Naam border kleur
+    nameDiv.style.borderColor = color;
+
+    // Kleur baan licht op basis van rank (subtiel)
+    lane.style.background = rank === 1
+        ? 'rgba(255,215,0,0.05)'
+        : 'transparent';
+}
+
+/* ─── Animaties ────────────────────────────────────────── */
+function triggerScoreAnim(teamId, points) {
+    const racer = document.querySelector(`.racer[data-racer="${teamId}"]`);
+    if (!racer) return;
+
+    racer.classList.remove('scoring');
+    void racer.offsetWidth; // reflow
+    racer.classList.add('scoring');
+    setTimeout(() => racer.classList.remove('scoring'), 700);
+
+    // Zwevende "+N" popup
     const popup = document.createElement('div');
     popup.className = 'points-popup';
     popup.textContent = `+${points}`;
-    popup.style.left = `${marker.offsetLeft + 30}px`;
-    popup.style.top = `${marker.offsetTop}px`;
-
-    document.getElementById('road').appendChild(popup);
-
+    popup.style.left = racer.style.left;
+    popup.style.top  = '10px';
+    racer.closest('.lane').appendChild(popup);
     setTimeout(() => popup.remove(), 1500);
 }
 
-/**
- * Trigger overtake animation
- */
-function triggerOvertakeAnimation(teamId) {
-    const marker = document.querySelector(`.team-marker[data-team-id="${teamId}"]`);
-    if (!marker) return;
-
-    marker.classList.add('overtaking');
-    setTimeout(() => marker.classList.remove('overtaking'), 800);
+function triggerOvertakeAnim(teamId) {
+    const racer = document.querySelector(`.racer[data-racer="${teamId}"]`);
+    if (!racer) return;
+    racer.classList.remove('overtaking');
+    void racer.offsetWidth;
+    racer.classList.add('overtaking');
+    setTimeout(() => racer.classList.remove('overtaking'), 900);
 }
 
-/**
- * Check and show winner
- */
+/* ─── Winnaar ──────────────────────────────────────────── */
 function checkWinner() {
-    if (!shouldShowWinner()) {
-        document.getElementById('winner-overlay').classList.remove('active');
-        return;
-    }
+    const overlay = document.getElementById('winner-overlay');
+    if (!shouldShowWinner()) { overlay.classList.remove('active'); return; }
 
-    const sortedTeams = getTeamsSortedByScore();
-    if (sortedTeams.length === 0) return;
+    const sorted = getTeamsSortedByScore();
+    if (sorted.length === 0) return;
 
-    const winner = sortedTeams[0];
-    const winnerScore = calculateTotalScore(winner);
-
-    // Update winner display
-    const winnerTeamDiv = document.getElementById('winner-team');
-    const avatarContent = winner.image
+    const winner = sorted[0];
+    const score  = calculateTotalScore(winner);
+    const avatarHtml = winner.image
         ? `<img src="${winner.image}" alt="${escapeHtml(winner.name)}">`
-        : getTeamAvatarEmoji(winner);
+        : '🏆';
 
-    winnerTeamDiv.innerHTML = `
-        <div class="avatar" style="border-color: ${winner.color || '#ffd700'}">${avatarContent}</div>
+    document.getElementById('winner-team').innerHTML = `
+        <div class="avatar" style="border-color:${winner.color||'#ffd700'}">${avatarHtml}</div>
         <div>${escapeHtml(winner.name)}</div>
     `;
+    document.getElementById('winner-score').textContent = `${score} punten!`;
 
-    document.getElementById('winner-score').textContent = `${winnerScore} punten!`;
-
-    // Show overlay
-    document.getElementById('winner-overlay').classList.add('active');
-
-    // Trigger celebrations
+    overlay.classList.add('active');
     playSound('winner');
     launchConfetti();
     launchFireworks();
 }
 
-/**
- * Launch confetti
- */
+/* ─── Confetti ─────────────────────────────────────────── */
 function launchConfetti() {
     const container = document.getElementById('confetti-container');
-    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffd700', '#ff6b35'];
-
-    for (let i = 0; i < 150; i++) {
+    const colors = ['#ff0000','#00e676','#2979ff','#ffd700','#ff4081','#00e5ff','#ff6d00'];
+    for (let i = 0; i < 160; i++) {
         setTimeout(() => {
-            const confetti = document.createElement('div');
-            confetti.className = 'confetti';
-            confetti.style.left = `${Math.random() * 100}%`;
-            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-            confetti.style.animationDuration = `${2 + Math.random() * 2}s`;
-            confetti.style.animationDelay = `${Math.random() * 0.5}s`;
-
-            // Random shapes
-            const shapes = ['50%', '0', '50% 0 50% 50%'];
-            confetti.style.borderRadius = shapes[Math.floor(Math.random() * shapes.length)];
-
-            container.appendChild(confetti);
-
-            setTimeout(() => confetti.remove(), 4000);
-        }, i * 20);
+            const el = document.createElement('div');
+            el.className = 'confetti';
+            el.style.left = `${Math.random() * 100}%`;
+            el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            el.style.animationDuration = `${2 + Math.random() * 2}s`;
+            el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+            el.style.width  = `${6 + Math.random() * 8}px`;
+            el.style.height = `${6 + Math.random() * 8}px`;
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 4000);
+        }, i * 18);
     }
 }
 
-/**
- * Launch fireworks
- */
+/* ─── Vuurwerk ─────────────────────────────────────────── */
 function launchFireworks() {
     const container = document.getElementById('confetti-container');
-    const colors = ['#ff0000', '#ffd700', '#00ff00', '#00ffff', '#ff00ff'];
-
-    for (let i = 0; i < 10; i++) {
+    const colors = ['#ff0000','#ffd700','#00e676','#00e5ff','#ff4081'];
+    for (let i = 0; i < 12; i++) {
         setTimeout(() => {
             const x = Math.random() * 80 + 10;
-            const y = Math.random() * 50 + 10;
-
-            for (let j = 0; j < 20; j++) {
-                const firework = document.createElement('div');
-                firework.className = 'firework';
-                firework.style.left = `${x}%`;
-                firework.style.top = `${y}%`;
-                firework.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                firework.style.boxShadow = `0 0 10px ${colors[Math.floor(Math.random() * colors.length)]}`;
-
-                container.appendChild(firework);
-
-                setTimeout(() => firework.remove(), 1000);
+            const y = Math.random() * 50 + 5;
+            for (let j = 0; j < 15; j++) {
+                const fw = document.createElement('div');
+                fw.className = 'firework';
+                fw.style.left = `${x}%`;
+                fw.style.top  = `${y}%`;
+                fw.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                container.appendChild(fw);
+                setTimeout(() => fw.remove(), 1000);
             }
-        }, i * 500);
+        }, i * 400);
     }
 }
 
-/**
- * Play sound effect
- */
+/* ─── Geluid ───────────────────────────────────────────── */
 function playSound(type) {
-    const settings = getSettings();
-    if (!settings.soundEnabled) return;
-
-    // Create audio context for generating sounds
+    if (!getSettings().soundEnabled) return;
     try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-        switch (type) {
-            case 'points':
-                playPointsSound(audioContext);
-                break;
-            case 'overtake':
-                playOvertakeSound(audioContext);
-                break;
-            case 'winner':
-                playWinnerSound(audioContext);
-                break;
-        }
-    } catch (e) {
-        console.log('Audio not supported:', e);
-    }
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (type === 'points')  playPointsSound(ctx);
+        if (type === 'overtake') playOvertakeSound(ctx);
+        if (type === 'winner')   playWinnerSound(ctx);
+    } catch(e) {}
 }
 
-/**
- * Play points sound (happy ding)
- */
 function playPointsSound(ctx) {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
+    osc.connect(gain); gain.connect(ctx.destination);
     osc.frequency.setValueAtTime(880, ctx.currentTime);
     osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
-
     gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialDecayTo = 0.01;
     gain.gain.setValueAtTime(0.01, ctx.currentTime + 0.3);
-
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
 }
 
-/**
- * Play overtake sound (whoosh)
- */
 function playOvertakeSound(ctx) {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-
     osc.type = 'sawtooth';
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
+    osc.connect(gain); gain.connect(ctx.destination);
     osc.frequency.setValueAtTime(200, ctx.currentTime);
     osc.frequency.linearRampToValueAtTime(800, ctx.currentTime + 0.2);
     osc.frequency.linearRampToValueAtTime(200, ctx.currentTime + 0.4);
-
     gain.gain.setValueAtTime(0.2, ctx.currentTime);
     gain.gain.setValueAtTime(0.01, ctx.currentTime + 0.4);
-
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.4);
 }
 
-/**
- * Play winner sound (fanfare)
- */
 function playWinnerSound(ctx) {
-    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-    const duration = 0.3;
-
-    notes.forEach((freq, i) => {
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * duration);
-
-        gain.gain.setValueAtTime(0, ctx.currentTime + i * duration);
-        gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + i * duration + 0.05);
-        gain.gain.setValueAtTime(0.3, ctx.currentTime + i * duration + duration - 0.05);
-        gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + i * duration + duration);
-
-        osc.start(ctx.currentTime + i * duration);
-        osc.stop(ctx.currentTime + i * duration + duration);
+        osc.connect(gain); gain.connect(ctx.destination);
+        const t = ctx.currentTime + i * 0.3;
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
+        gain.gain.setValueAtTime(0.3, t + 0.25);
+        gain.gain.linearRampToValueAtTime(0.01, t + 0.3);
+        osc.start(t); osc.stop(t + 0.3);
     });
 }
 
-/**
- * Escape HTML to prevent XSS
- */
+/* ─── Utility ──────────────────────────────────────────── */
 function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
 }
