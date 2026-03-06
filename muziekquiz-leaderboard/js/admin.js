@@ -319,7 +319,6 @@ function updateScoresInput() {
     const teams = getTeams();
     const container = document.getElementById('scores-input');
     const currentRound = getCurrentRound();
-    const settings = getSettings();
 
     if (teams.length === 0) {
         container.innerHTML = '<p class="no-teams">Voeg eerst teams toe in het "Teams Beheren" tabblad.</p>';
@@ -345,9 +344,8 @@ function updateScoresInput() {
                            class="round-score-input"
                            data-team-id="${team.id}"
                            value="${roundScore}"
-                           min="0"
-                           max="${settings.maxPointsPerRound}">
-                    <span>/ ${settings.maxPointsPerRound}</span>
+                           min="0">
+                    <span>punten</span>
                 </div>
             </div>
         `;
@@ -367,10 +365,9 @@ function saveRoundScore(event) {
     const input = event.target;
     const teamId = input.dataset.teamId;
     const currentRound = getCurrentRound();
-    const settings = getSettings();
 
     let score = parseInt(input.value) || 0;
-    score = Math.max(0, Math.min(score, settings.maxPointsPerRound));
+    score = Math.max(0, score); // Only prevent negative numbers
     input.value = score;
 
     const teams = getTeams();
@@ -447,14 +444,12 @@ function initSettingsTab() {
 
     // Load current settings
     document.getElementById('total-rounds-input').value = settings.totalRounds;
-    document.getElementById('max-points-input').value = settings.maxPointsPerRound;
     document.getElementById('sound-enabled').checked = settings.soundEnabled;
 
     // Save settings button
     document.getElementById('save-settings-btn').addEventListener('click', () => {
         const newSettings = {
             totalRounds: parseInt(document.getElementById('total-rounds-input').value) || 5,
-            maxPointsPerRound: parseInt(document.getElementById('max-points-input').value) || 10,
             soundEnabled: document.getElementById('sound-enabled').checked
         };
 
