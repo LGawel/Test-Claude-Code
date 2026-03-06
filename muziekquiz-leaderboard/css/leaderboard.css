@@ -249,6 +249,30 @@ body {
     transition: background 0.3s;
 }
 
+/* Leader crown */
+.leader-crown {
+    position: absolute;
+    top: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 2rem;
+    opacity: 0;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.8));
+    z-index: 15;
+    pointer-events: none;
+}
+
+.leader-crown.visible {
+    opacity: 1;
+    animation: crown-bounce 1s ease infinite;
+}
+
+@keyframes crown-bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0) rotate(-5deg); }
+    50% { transform: translateX(-50%) translateY(-5px) rotate(5deg); }
+}
+
 .racer-name {
     font-size: 0.8rem;
     font-weight: bold;
@@ -275,14 +299,30 @@ body {
 }
 
 @keyframes overtake {
-    0%, 100% { transform: translateX(-50%) scale(1); }
-    25%  { transform: translateX(-50%) scale(1.2) rotate(-6deg); }
-    75%  { transform: translateX(-50%) scale(1.2) rotate(6deg); }
+    0%, 100% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+    25%  { transform: translateX(-50%) scale(1.3) rotate(-8deg); filter: brightness(1.3); }
+    50%  { transform: translateX(-50%) scale(1.35) rotate(0deg); filter: brightness(1.5); }
+    75%  { transform: translateX(-50%) scale(1.3) rotate(8deg); filter: brightness(1.3); }
 }
 
 .racer.overtaking {
-    animation: overtake 0.9s ease;
+    animation: overtake 1s ease;
     z-index: 20;
+}
+
+.racer.overtaking::after {
+    content: '🔥';
+    position: absolute;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.5rem;
+    animation: fire-pulse 0.3s ease infinite;
+}
+
+@keyframes fire-pulse {
+    0%, 100% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.3); }
 }
 
 /* Punten popup */

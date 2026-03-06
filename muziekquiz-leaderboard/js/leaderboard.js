@@ -5,6 +5,65 @@
 let previousScores = {};
 let previousRanks  = {};
 
+/* ─── Team Catchphrases ────────────────────────────────── */
+const TEAM_CATCHPHRASES = {
+    // Bad Bunny
+    'bad bunny': ['Yeh yeh yeh!', 'Bad Bunny baby!', 'Está cabrón!'],
+    'bad bunnies': ['Yeh yeh yeh!', 'Bad Bunny baby!', 'Está cabrón!'],
+
+    // Pitbull
+    'pitbull': ['Mister Worldwide!', 'Dale!', 'Uno dos tres cuatro!'],
+    'quizter worldwide': ['Mister Worldwide!', 'Dale!', 'Uno dos tres cuatro!'],
+    'mr worldwide': ['Mister Worldwide!', 'Dale!', 'Uno dos tres cuatro!'],
+
+    // Dave Grohl / Foo Fighters
+    'dave grohl': ['Rock and Roll!', 'Best of you!', 'There goes my hero!'],
+    'foo fighters': ['Rock and Roll!', 'Best of you!', 'There goes my hero!'],
+    'variā statūrā': ['Rock and Roll!', 'Best of you!', 'There goes my hero!'],
+    'varia statura': ['Rock and Roll!', 'Best of you!', 'There goes my hero!'],
+
+    // Justin Bieber
+    'justin bieber': ['Baby baby baby ooh!', 'Never say never!', 'Belieeeve!'],
+    'bieber': ['Baby baby baby ooh!', 'Never say never!', 'Belieeeve!'],
+    'beebs': ['Baby baby baby ooh!', 'Never say never!', 'Belieeeve!'],
+    'the beebs babes': ['Baby baby baby ooh!', 'Never say never!', 'Belieeeve!'],
+
+    // Marco Borsato
+    'marco borsato': ['Rood!', 'Dromen zijn bedrog!', 'Wat zou je doen!'],
+    'borsato': ['Rood!', 'Dromen zijn bedrog!', 'Wat zou je doen!'],
+    'rooie rakkers': ['Rood!', 'Dromen zijn bedrog!', 'Wat zou je doen!']
+};
+
+function getTeamCatchphrase(teamName) {
+    const name = teamName.toLowerCase();
+    for (const [key, phrases] of Object.entries(TEAM_CATCHPHRASES)) {
+        if (name.includes(key) || key.includes(name)) {
+            return phrases[Math.floor(Math.random() * phrases.length)];
+        }
+    }
+    return null;
+}
+
+function speakCatchphrase(phrase) {
+    if (!getSettings().soundEnabled) return;
+    if ('speechSynthesis' in window) {
+        // Stop any ongoing speech
+        speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(phrase);
+        utterance.rate = 1.1;
+        utterance.pitch = 1.2;
+        utterance.volume = 0.8;
+
+        // Try to find a good voice
+        const voices = speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.lang.startsWith('en') || v.lang.startsWith('nl'));
+        if (preferredVoice) utterance.voice = preferredVoice;
+
+        speechSynthesis.speak(utterance);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     updateRoundDisplay();
     renderLanes();
@@ -51,10 +110,17 @@ function handleUpdate() {
         if (prevScore !== null && currScore > prevScore) {
             triggerScoreAnim(team.id, currScore - prevScore);
             playSound('points');
+
+            // Team-specific catchphrase
+            const catchphrase = getTeamCatchphrase(team.name);
+            if (catchphrase) {
+                setTimeout(() => speakCatchphrase(catchphrase), 300);
+            }
         }
         if (prevRank !== null && currRank < prevRank) {
             triggerOvertakeAnim(team.id);
             playSound('overtake');
+            playSound('crowd'); // Crowd cheering for position change
         }
     });
 
@@ -113,6 +179,7 @@ function createLane(team) {
 
     lane.innerHTML = `
         <div class="racer" data-racer="${team.id}">
+            <div class="leader-crown">👑</div>
             <div class="racer-img-wrap">
                 ${photoHtml}
                 <span class="racer-score-badge" style="background:${color};">0 pts</span>
@@ -131,6 +198,7 @@ function updateLane(lane, team, sortedTeams, maxScore) {
     const racer   = lane.querySelector('.racer');
     const badge   = lane.querySelector('.racer-score-badge');
     const nameDiv = lane.querySelector('.racer-name');
+    const crown   = lane.querySelector('.leader-crown');
 
     // Positie op de baan: 5% = start, 90% = vlak voor finish
     const pct = maxScore > 0 ? 5 + (score / maxScore) * 85 : 5;
@@ -145,6 +213,11 @@ function updateLane(lane, team, sortedTeams, maxScore) {
 
     // Naam border kleur
     nameDiv.style.borderColor = color;
+
+    // Kroon alleen voor de leider (en alleen als score > 0)
+    if (crown) {
+        crown.classList.toggle('visible', rank === 1 && score > 0);
+    }
 
     // Kleur baan licht op basis van rank (subtiel)
     lane.style.background = rank === 1
@@ -253,9 +326,10 @@ function playSound(type) {
     if (!getSettings().soundEnabled) return;
     try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        if (type === 'points')  playPointsSound(ctx);
+        if (type === 'points')   playPointsSound(ctx);
         if (type === 'overtake') playOvertakeSound(ctx);
         if (type === 'winner')   playWinnerSound(ctx);
+        if (type === 'crowd')    playCrowdSound(ctx);
     } catch(e) {}
 }
 
@@ -296,6 +370,41 @@ function playWinnerSound(ctx) {
         gain.gain.linearRampToValueAtTime(0.01, t + 0.3);
         osc.start(t); osc.stop(t + 0.3);
     });
+}
+
+function playCrowdSound(ctx) {
+    // Simulate crowd "ooooh!" cheering with filtered noise
+    const duration = 0.8;
+    const bufferSize = ctx.sampleRate * duration;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    // Generate noise
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * 0.5;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    // Filter to make it sound more like a crowd
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(800, ctx.currentTime);
+    filter.Q.setValueAtTime(1.5, ctx.currentTime);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime + 0.5);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    noise.start(ctx.currentTime);
+    noise.stop(ctx.currentTime + duration);
 }
 
 /* ─── Utility ──────────────────────────────────────────── */
